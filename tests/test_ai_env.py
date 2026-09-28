@@ -118,10 +118,86 @@ def test_ai_disabled_sends_nothing(monkeypatch):
 
 def test_missing_key_is_reported(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.setattr("sysscan.describe.get_api_key", lambda: None)
+    monkeypatch.setattr("sysscan.describe.ai.get_api_key", lambda: None)
     pipe = DescriptionPipeline(Store(":memory:"), AIConfig(), use_ai=True)
     pipe.run([change("Mystery Tool")])
     assert any(".env" in m for m in pipe.messages)
+
+
+def test_ollama_runs_without_api_key(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+
+    class FakeOllama:
+        def describe(self, items, web=False):
+            assert web is False
+            return {it.id: AIAnswer("A disk utility.", "Contoso", "high") for it in items}
+
+    pipe = DescriptionPipeline(
+        Store(":memory:"),
+        AIConfig(provider="ollama", model="llama3.2"),
+        use_ai=True,
+        describer_factory=lambda _ai: FakeOllama(),
+    )
+    c = change("Mystery Tool")
+    pipe.run([c])
+    assert (c.description, c.description_source) == ("A disk utility.", "ai")
+    assert (c.publisher, c.publisher_source) == ("Contoso", "ai")
+    assert any("Ollama filled in" in m for m in pipe.messages)
+
+
+def test_ollama_skips_web_search(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    calls: list[bool] = []
+
+    class FakeOllama:
+        def describe(self, items, web=False):
+            calls.append(web)
+            return {it.id: AIAnswer("Maybe a tool.", None, "low") for it in items}
+
+    store = Store(":memory:")
+    c = change("Weird Thing")
+    pipe = DescriptionPipeline(
+        store, AIConfig(provider="ollama", web=True), use_ai=True,
+        describer_factory=lambda _ai: FakeOllama(),
+    )
+    pipe.run([c])
+    assert calls == [False]
+    assert c.description_source == "ai-low"
+    assert any("Web search is only available with Claude" in m for m in pipe.messages)
+
+    # Cached low-confidence answer would normally trigger a Claude web retry; Ollama must not.
+    calls.clear()
+    again = change("Weird Thing")
+    pipe2 = DescriptionPipeline(
+        store, AIConfig(provider="ollama", web=True), use_ai=True,
+        describer_factory=lambda _ai: FakeOllama(),
+    )
+    pipe2.run([again])
+    assert calls == []  # web-retry candidates are not re-sent on the plain pass
+    assert any("Web search is only available with Claude" in m for m in pipe2.messages)
+    assert again.description_source == "ai-low"
+
+
+def test_provider_and_base_url_from_env(tmp_path, monkeypatch):
+    cfg_file = tmp_path / "config.toml"
+    cfg_file.write_text('[ai]\nenabled = true\nprovider = "claude"\n')
+    monkeypatch.setenv("SYSSCAN_AI_PROVIDER", "ollama")
+    monkeypatch.setenv("SYSSCAN_AI_MODEL", "qwen2.5")
+    monkeypatch.setenv("SYSSCAN_AI_BASE_URL", "http://192.168.1.10:11434")
+    cfg = load_config(cfg_file)
+    assert cfg.ai.provider == "ollama"
+    assert cfg.ai.model == "qwen2.5"
+    assert cfg.ai.base_url == "http://192.168.1.10:11434"
+
+
+def test_ollama_parse_chat_response():
+    from sysscan.describe.ai import OllamaDescriber, parse_response
+
+    text = 'Here you go:\n[{"id": 0, "description": "A text editor.", "publisher": "Microsoft", "confidence": "high"}]\n'
+    ans = parse_response(text)[0]
+    assert ans.description == "A text editor." and ans.publisher == "Microsoft"
+    d = OllamaDescriber("llama3.2", "http://127.0.0.1:11434")
+    assert d.provider == "ollama"
 
 
 def test_prompt_lists_needed_fields():

@@ -21,10 +21,14 @@ def default_home() -> Path:
 @dataclass
 class AIConfig:
     enabled: bool = False
+    #: "claude" (Anthropic cloud) or "ollama" (local).
+    provider: str = "claude"
     model: str = "claude-haiku-4-5"
+    #: Ollama base URL (ignored for Claude).
+    base_url: str = "http://127.0.0.1:11434"
     max_items_per_run: int = 150
     batch_size: int = 25
-    #: Second pass with web search for items the first pass couldn't identify (costs ~$0.01 per search).
+    #: Second pass with web search for items the first pass couldn't identify (Claude only; ~$0.01/search).
     web: bool = False
     web_max_items: int = 15
 
@@ -74,8 +78,12 @@ def apply_env_overrides(cfg: Config) -> Config:
     The --ai / --no-ai command-line flags override both."""
     if (flag := env_flag("SYSSCAN_AI")) is not None:
         cfg.ai.enabled = flag
+    if provider := os.environ.get("SYSSCAN_AI_PROVIDER", "").strip():
+        cfg.ai.provider = provider
     if model := os.environ.get("SYSSCAN_AI_MODEL", "").strip():
         cfg.ai.model = model
+    if base_url := os.environ.get("SYSSCAN_AI_BASE_URL", "").strip():
+        cfg.ai.base_url = base_url
     if (n := os.environ.get("SYSSCAN_AI_MAX_ITEMS", "").strip()).isdigit():
         cfg.ai.max_items_per_run = int(n)
     if (flag := env_flag("SYSSCAN_AI_WEB")) is not None:
@@ -113,7 +121,9 @@ def load_config(path: Path | None = None) -> Config:
     ai = data.get("ai", {})
     cfg.ai = AIConfig(
         enabled=bool(ai.get("enabled", False)),
+        provider=str(ai.get("provider", AIConfig.provider)),
         model=str(ai.get("model", AIConfig.model)),
+        base_url=str(ai.get("base_url", AIConfig.base_url)),
         max_items_per_run=int(ai.get("max_items_per_run", AIConfig.max_items_per_run)),
         batch_size=int(ai.get("batch_size", AIConfig.batch_size)),
         web=bool(ai.get("web", False)),

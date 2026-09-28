@@ -38,8 +38,9 @@ the result into one easy-to-read report:
 - 🧹 **Less noise.** Things that update constantly in the background, like antivirus definitions and
   browser updates, are tucked into a "routine" section.
 - 🕰️ **Automatic daily snapshots.** Optional. They make the reports more complete over time.
-- 🤖 **Optional AI explanations.** Claude can explain software that sysscan doesn't recognise. It sends
-  only basic facts about the software itself, never personal information.
+- 🤖 **Optional AI explanations.** Claude (cloud) or local Ollama can explain software that sysscan
+  doesn't recognise. With Claude, only basic facts about the software are sent; with Ollama, nothing leaves
+  your PC.
 - 🏷️ **Your own labels.** If you know what something is, tag it once and every future report uses your
   description.
 - 🖱️ **`runScan`.** No Python needed: double-click it, type it in a terminal, or let it run silently at startup.
@@ -64,6 +65,34 @@ sysscan             # scan your PC and open the report
 > results. It works without admin rights, but it can see less, and the report tells you so.
 
 **➡️ Full instructions, every command and troubleshooting: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)**
+
+## Optional AI explanations
+
+Off by default. When something isn't in the built-in rules and has no usable description on the PC,
+sysscan can ask an AI. Pick one provider in a `.env` file (see [`.env.example`](.env.example)):
+
+**Claude** (cloud — small API cost):
+
+```ini
+ANTHROPIC_API_KEY=sk-ant-...
+SYSSCAN_AI=true
+```
+
+**Ollama** (local — free, nothing leaves your PC):
+
+```ini
+SYSSCAN_AI=true
+SYSSCAN_AI_PROVIDER=ollama
+SYSSCAN_AI_MODEL=llama3.2
+```
+
+```powershell
+ollama pull llama3.2          # once; https://ollama.com/
+sysscan collectors            # confirms the provider and that Ollama is reachable
+sysscan scan --ai
+```
+
+Details, web search (Claude only), costs and privacy: [docs/USER_GUIDE.md §6](docs/USER_GUIDE.md#6-ai-explanations-optional).
 
 ## The five commands you'll use most
 
@@ -93,10 +122,10 @@ sysscan tries to be honest about what Windows actually records.
 ## Privacy
 
 - **Everything stays on your PC.** Snapshots and reports are saved in `%LOCALAPPDATA%\sysscan`.
-- **AI is off unless you turn it on.** When it's on, sysscan sends Anthropic's API only facts about the
+- **AI is off unless you turn it on.** With **Claude**, sysscan sends Anthropic's API only facts about the
   software: its name, maker, version and type, plus clues such as the vendor's website or its folder
-  under Program Files. It only does this for items it couldn't identify itself. Answers are saved, so the
-  same item isn't sent again.
+  under Program Files — and only for items it couldn't identify itself. With **Ollama**, the same facts
+  stay on your machine. Answers are cached, so the same item isn't asked about again.
 - **No personal details are sent.** Your user name, anything inside your user folder, and your computer's
   name and details are never included.
 

@@ -132,12 +132,19 @@ def cmd_collectors(args: argparse.Namespace, cfg: Config) -> int:
         state = "disabled (config)" if c.name in cfg.disabled_collectors else ("available" if ok else why)
         print(f"{c.name:<18} {state:<22} {c.title}")
     print(f"\nRunning as administrator: {'yes' if is_admin() else 'no'}")
-    from sysscan.describe.ai import get_api_key
+    from sysscan.describe.ai import get_api_key, normalize_provider, ollama_status
     from sysscan.envfile import loaded_files
 
-    key = get_api_key()
-    print(f"AI descriptions: {'enabled' if cfg.ai.enabled else 'disabled'} (model {cfg.ai.model}); "
-          f"API key {'found' if key else 'not found'}")
+    provider = normalize_provider(cfg.ai.provider)
+    if provider == "ollama":
+        ok, detail = ollama_status(cfg.ai.base_url)
+        print(f"AI descriptions: {'enabled' if cfg.ai.enabled else 'disabled'} "
+              f"(provider ollama, model {cfg.ai.model}); {detail}")
+    else:
+        key = get_api_key()
+        print(f"AI descriptions: {'enabled' if cfg.ai.enabled else 'disabled'} "
+              f"(provider claude, model {cfg.ai.model}); "
+              f"API key {'found' if key else 'not found'}")
     for f in loaded_files():
         print(f"  .env loaded: {f}")
     return 0
@@ -328,7 +335,8 @@ def add_scan_options(s: argparse.ArgumentParser) -> None:
     s.add_argument("--since", type=_parse_when, help="start of period: 2026-09-01, '2026-09-01 14:00', 7d, 12h "
                    "(default: previous scan)")
     s.add_argument("--until", type=_parse_when, help="end of period (default: now)")
-    s.add_argument("--ai", dest="ai", action="store_true", default=None, help="use Claude for unknown items")
+    s.add_argument("--ai", dest="ai", action="store_true", default=None,
+                   help="use AI (Claude or Ollama) for unknown items")
     s.add_argument("--no-ai", dest="ai", action="store_false", help="never call the AI")
     s.add_argument("--format", help="comma list of html,md,json (default from config)")
     s.add_argument("--out", help="output directory for reports")

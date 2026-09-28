@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Local Ollama AI provider.** Set `SYSSCAN_AI_PROVIDER=ollama` (and `SYSSCAN_AI_MODEL`, e.g. `llama3.2`)
+  to enrich descriptions/publishers via a local Ollama daemon — no API key, nothing leaves the machine.
+  Claude remains the default; web search stays Claude-only. `sysscan collectors` reports Ollama reachability.
+
 ## 0.4.0 — 2026-09-26
 
 - **Your own tags**: `known_software.toml` holds identifications that override rules and AI.

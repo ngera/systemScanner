@@ -54,8 +54,8 @@ Showing this is a deliberate product choice. False precision is worse than an ho
 
 ## Descriptions
 
-Order: **your tags → curated rules → cached AI answer → the software's own text → Claude → Claude with web
-search → nothing.**
+Order: **your tags → curated rules → cached AI answer → the software's own text → AI provider →
+(Claude only) web search → nothing.**
 
 - **Your tags** (`known_software.toml`) always win. People often know things no automated source does.
 - **Rules** are cheap, offline and accurate for the software that shows up most (runtimes, Windows
@@ -65,11 +65,18 @@ search → nothing.**
 - **Before any AI call**, missing publishers are filled from the PC's own records (uninstall entries,
   Store manifests, a service's Program Files folder), and hints are collected: vendor website, install
   folder, executable path. Paths inside a user profile are dropped.
-- **Claude** is opt-in and runs only for changed items nothing else could explain, asking only for the
-  missing fields. It's batched, and every answer is cached by normalised name, including "don't know".
-  The prompt tells the model to say less, not guess. Unsure publishers are never used.
-- **Web search** is a separate opt-in second pass for what the first pass couldn't pin down. Each product
-  is searched at most once, with a per-scan cap. Answers carry a source link.
+- **AI** is opt-in (`SYSSCAN_AI` / `--ai`) and runs only for changed items nothing else could explain,
+  asking only for the missing fields. It's batched, and every answer is cached by normalised name,
+  including "don't know". The same prompt is used for both providers; the model is told to say less, not
+  guess. Unsure publishers are never used.
+  - **Claude** (default): Anthropic Messages API. Needs `ANTHROPIC_API_KEY` (or `sysscan set-key`) and
+    the optional `sysscan[ai]` dependency.
+  - **Ollama** (`SYSSCAN_AI_PROVIDER=ollama`): local HTTP `/api/chat` against `SYSSCAN_AI_BASE_URL`
+    (default `http://127.0.0.1:11434`). No API key and no extra Python package; nothing leaves the machine.
+    Implemented with the standard library so the packaged exe does not need an Ollama client library.
+- **Web search** is a separate opt-in second pass for what the first pass couldn't pin down. It uses
+  Claude's `web_search` tool only; with Ollama the setting is ignored. Each product is searched at most
+  once, with a per-scan cap. Answers carry a source link.
 
 ## Routine noise
 

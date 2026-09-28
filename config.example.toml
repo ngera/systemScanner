@@ -23,10 +23,14 @@ extra_patterns = []
 [ai]
 # Tip: you can also use a .env file instead (see .env.example): SYSSCAN_AI=true overrides `enabled` below.
 # Plain-language descriptions and publishers for software the rules and the PC's own metadata can't explain.
-# Only the software name, publisher and version are sent to the Anthropic API. Answers are cached,
-# so each product is described once. Set the key with `sysscan set-key` or ANTHROPIC_API_KEY.
+# Answers are cached, so each product is described once.
+#
+# provider = "claude"  → Anthropic cloud (set the key with `sysscan set-key` or ANTHROPIC_API_KEY)
+# provider = "ollama"  → local Ollama (no key; install from https://ollama.com/ and `ollama pull <model>`)
 enabled = false
+provider = "claude"
 model = "claude-haiku-4-5"
+# base_url = "http://127.0.0.1:11434"   # Ollama only
 max_items_per_run = 150
-web = false            # SYSSCAN_AI_WEB: retry unsure items with Claude's web search tool (~$0.01/search)
+web = false            # SYSSCAN_AI_WEB: retry unsure items with Claude's web search (~$0.01/search; Claude only)
 web_max_items = 15

@@ -17,7 +17,7 @@
   <div class="c-type" data-label="Type"><span class="type t-{{ c.category.value }}">{{ c.category.short_label }}</span></div>
   <div class="c-prov" data-label="Provider"{% if c.publisher and c.publisher != c.provider %} title="{{ c.publisher }}"{% endif %}>
     {%- if c.provider == "Unknown" %}<span class="muted">Unknown</span>{% else %}{{ c.provider }}{% endif -%}
-    {%- if c.publisher_source == "ai" %}<span class="src" title="Publisher identified by Claude">AI</span>
+    {%- if c.publisher_source == "ai" %}<span class="src" title="Publisher identified by AI">AI</span>
     {%- elif c.publisher_source == "yours" %}<span class="src yours" title="From your known_software.toml">yours</span>{% endif -%}
   </div>
   <div class="c-ver ver" data-label="Version">{{ version(c) }}</div>
@@ -303,7 +303,7 @@ footer th { font-weight: 600; color: var(--text); border-top: 0; }
   <p>“exact” times come from Windows logs; “approx.” from file or registry write times; “between scans”
   means the change was detected by comparing snapshots, so it matches any date in that range when filtering.
   Descriptions and providers marked <span class="src">AI</span> weren't available on this PC and were
-  filled in by Claude; they may be imprecise for obscure software. <span class="src yours">yours</span> marks
+  filled in by AI; they may be imprecise for obscure software. <span class="src yours">yours</span> marks
   your own tags. Use <b>Tag it</b> on a row (or <code>sysscan unknowns --edit</code>) to identify something
   yourself, then <code>sysscan retag</code>.{% if r.ai_used %} AI was enabled for this scan.{% endif %}</p>
   <p>sysscan {{ r.tool_version }}</p>

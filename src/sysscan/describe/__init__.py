@@ -5,11 +5,11 @@ Description, first match wins:
   2. curated rule            (source = "rule")      — accurate, offline
   3. cached AI answer        (source = "ai" / "ai-low" / "ai-web" / "ai-web-low")
   4. software's own text     (source = "publisher") — pip/npm/Store/extension/Windows Update metadata
-  5. Claude API              (source = "ai" / "ai-low") — only when AI is enabled
-  6. Claude + web search     (source = "ai-web")    — only when SYSSCAN_AI_WEB is on, for what 5 couldn't do
+  5. AI provider             (source = "ai" / "ai-low") — Claude or local Ollama, when AI is enabled
+  6. Claude + web search     (source = "ai-web")    — only when SYSSCAN_AI_WEB is on (Claude only)
   7. nothing                 (source = "none")
 
-Publisher: your tag, else the software's own, else (AI on) Claude in the same requests. AI publishers
+Publisher: your tag, else the software's own, else (AI on) the provider in the same requests. AI publishers
 are only used when the model is confident; they're marked "ai" (publisher_source).
 
 Every AI answer is cached per product, including "don't know", so nothing is sent twice. A product that
@@ -24,7 +24,13 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from sysscan.config import AIConfig
-from sysscan.describe.ai import AIAnswer, AIItem, ClaudeDescriber, get_api_key
+from sysscan.describe.ai import (
+    AIAnswer,
+    AIItem,
+    MissingAPIKey,
+    build_describer,
+    normalize_provider,
+)
 from sysscan.describe.rules import describe_by_rule
 from sysscan.known import KnownSoftware
 from sysscan.models import Change
@@ -67,13 +73,13 @@ class _Pending:
 
 class DescriptionPipeline:
     def __init__(self, store: Store, ai: AIConfig, use_ai: bool,
-                 describer_factory: Callable[[str, str], object] | None = None,
+                 describer_factory: Callable[[AIConfig], object] | None = None,
                  known: KnownSoftware | None = None):
         self.store = store
         self.ai = ai
         self.use_ai = use_ai
         self.known = known or KnownSoftware()
-        self.describer_factory = describer_factory or (lambda key, model: ClaudeDescriber(key, model))
+        self.describer_factory = describer_factory or build_describer
         self.messages: list[str] = []
         self.stats = {"descriptions": 0, "publishers": 0, "web": 0, "yours": 0}
 
@@ -126,8 +132,9 @@ class DescriptionPipeline:
 
         if self.use_ai and (self.stats["descriptions"] or self.stats["publishers"]):
             web = f" ({self.stats['web']} using web search)" if self.stats["web"] else ""
+            who = "Ollama" if normalize_provider(self.ai.provider) == "ollama" else "Claude"
             self.messages.append(
-                f"Claude filled in {self.stats['descriptions']} description(s) and "
+                f"{who} filled in {self.stats['descriptions']} description(s) and "
                 f"{self.stats['publishers']} publisher(s) that weren't available on this PC{web}. "
                 "They're marked AI in the report."
             )
@@ -152,15 +159,16 @@ class DescriptionPipeline:
     # ------------------------------------------------------------------ AI
 
     def _run_ai(self, pending: list[_Pending]) -> None:
-        key = get_api_key()
-        if not key:
-            self.messages.append("AI is enabled but no API key was found. Put ANTHROPIC_API_KEY in a .env "
-                                 "file (see .env.example) or run `sysscan set-key`.")
-            return
         try:
-            describer = self.describer_factory(key, self.ai.model)
+            describer = self.describer_factory(self.ai)
+        except MissingAPIKey as exc:
+            self.messages.append(str(exc))
+            return
         except ImportError:
             self.messages.append('AI is enabled but the Anthropic SDK is missing: pip install "sysscan[ai]"')
+            return
+        except ValueError as exc:
+            self.messages.append(str(exc))
             return
 
         # One request per product, even if several changes share it.
@@ -176,7 +184,10 @@ class DescriptionPipeline:
                       if not self._web_retry_due(p.change, self.store.get_description(ck))}
         answers = self._ask(describer, first_pass, web=False)
 
-        if self.ai.web:
+        use_web = self.ai.web and normalize_provider(self.ai.provider) == "claude"
+        if self.ai.web and not use_web:
+            self.messages.append("Web search is only available with Claude; skipped for Ollama.")
+        if use_web:
             still = {ck: p for ck, p in unique.items()
                      if ck not in answers or self._unresolved(p, answers[ck])}
             if still:

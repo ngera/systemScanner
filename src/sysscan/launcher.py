@@ -113,7 +113,9 @@ EXAMPLES
 
 FILES
   Reports, snapshots, tags and settings: %LOCALAPPDATA%\\sysscan
-  Put a .env file (ANTHROPIC_API_KEY=..., SYSSCAN_AI=true) next to runScan.exe or in that folder.
+  Put a .env file next to runScan.exe or in that folder
+  (Claude: ANTHROPIC_API_KEY=... SYSSCAN_AI=true;
+   Ollama: SYSSCAN_AI_PROVIDER=ollama SYSSCAN_AI_MODEL=llama3.2 SYSSCAN_AI=true).
 """
 
 
