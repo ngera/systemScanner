@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.venv-build/
+venv/
+build/
+dist/
+*.spec
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+# Local scan output: never commit real reports, they describe your machine
+reports/
+*.db
+sysscan.log
+.env
+Claude outputs/
+.idea/
+.vscode/

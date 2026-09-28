@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sysscan"
+version = "0.4.0"
+description = "Find out what got installed, updated or uninstalled on your Windows PC — with plain-language explanations."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Neeraj Gera" }]
+keywords = ["windows", "inventory", "software", "audit", "installed-programs", "windows-update", "forensics"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = ["jinja2>=3.1"]
+
+[project.optional-dependencies]
+ai = ["anthropic>=0.40", "keyring>=24"]
+dev = ["pytest>=8", "ruff>=0.6"]
+build = ["pyinstaller>=6.6"]
+
+[project.scripts]
+sysscan = "sysscan.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/YOUR_GITHUB_USERNAME/system-scanner"
+Issues = "https://github.com/YOUR_GITHUB_USERNAME/system-scanner/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sysscan"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003", "RUF005", "E731", "SIM108", "E501"]

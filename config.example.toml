@@ -1,0 +1,32 @@
+# sysscan configuration.
+# Copy to %LOCALAPPDATA%\sysscan\config.toml (or pass --config PATH). Every key is optional.
+
+[general]
+# home = "D:/sysscan"            # where the snapshot database and reports live
+# report_dir = "~/Documents/sysscan-reports"
+formats = ["html", "md", "json"]  # any of: html, md, json
+open_report = true                # open the HTML report after an interactive scan
+first_run_days = 30               # look-back window when there is no earlier snapshot
+
+# known_software = "~/OneDrive/sysscan/known_software.toml"   # your tags; share one file across PCs
+
+[collectors]
+# Names as shown by `sysscan collectors`.
+disabled = []
+# Extra Python interpreters whose pip packages should be tracked (global ones are found via `py -0p`).
+python_interpreters = []
+
+[routine]
+# Regexes (case-insensitive) for updates you consider routine noise. They're collapsed in the report.
+extra_patterns = []
+
+[ai]
+# Tip: you can also use a .env file instead (see .env.example): SYSSCAN_AI=true overrides `enabled` below.
+# Plain-language descriptions and publishers for software the rules and the PC's own metadata can't explain.
+# Only the software name, publisher and version are sent to the Anthropic API. Answers are cached,
+# so each product is described once. Set the key with `sysscan set-key` or ANTHROPIC_API_KEY.
+enabled = false
+model = "claude-haiku-4-5"
+max_items_per_run = 150
+web = false            # SYSSCAN_AI_WEB: retry unsure items with Claude's web search tool (~$0.01/search)
+web_max_items = 15

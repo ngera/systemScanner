@@ -1,0 +1,88 @@
+[Device Install Log]
+     OS Version = 10.0.26100
+     Service Pack = 0.0
+     Suite = 0x0100
+     ProductType = 1
+     Architecture = amd64
+
+[BeginLog]
+
+>>>  [Device Install (Hardware initiated) - USB\VID_1234&PID_5678&MI_00\7&1111&0&0000]
+>>>  Section start 2026/09/21 14:49:24.091
+     utl: {Select Drivers - USB\VID_1234&PID_5678&MI_00\7&1111&0&0000} 14:49:24.111
+     utl:      Driver Node:
+     utl:           Status         - Selected
+     utl:           Driver INF     - wpdmtp.inf (C:\WINDOWS\System32\DriverStore\FileRepository\wpdmtp.inf_amd64_19ddd2e434e3bede\wpdmtp.inf)
+     utl:           Class GUID     - {eec5ad98-8080-425f-922a-dabf3de3f69a}
+     utl:           Driver Version - 06/21/2006,10.0.26100.8521
+     utl:           Configuration  - USB\Class_06&SubClass_01&Prot_01 [MTP.NT]
+     utl:           Driver Rank    - 00FF2003
+     utl:           Signer Score   - Inbox (0D000003)
+     utl: {Select Drivers - exit(0x00000000} 14:49:24.117
+     dvi:      {Install Device - USB\VID_1234&PID_5678&MI_00\7&1111&0&0000} 14:49:24.150
+     dvi:      {Install Device - exit(0x00000000)} 14:49:24.965
+<<<  Section end 2026/09/21 14:49:25.040
+<<<  [Exit status: SUCCESS]
+
+>>>  [Device Install (Install Windows Update driver) - PCI\VEN_14C3&DEV_0616&SUBSYS_0000&REV_00\4&AAAA&0&0012]
+>>>  Section start 2026/09/20 10:57:53.066
+     inf:           Provider       = MediaTek, Inc.
+     inf:           Driver Version = 05/18/2026,3.5.0.1200
+     utl:      {Select Drivers - PCI\VEN_14C3&DEV_0616&SUBSYS_0000&REV_00\4&AAAA&0&0012} 10:57:53.453
+     utl:           Driver Node:
+     utl:                Status         - Selected
+     utl:                Driver INF     - oem141.inf (C:\WINDOWS\System32\DriverStore\FileRepository\mtkwlex.inf_amd64_1\mtkwlex.inf)
+     utl:                Driver Version - 05/18/2026,3.5.0.1200
+     utl:                Signer Score   - WHQL (0D000005)
+     utl:           Driver Node:
+     utl:                Driver Version - 01/10/2025,3.3.0.540
+<<<  Section end 2026/09/20 10:57:53.549
+<<<  [Exit status: SUCCESS]
+
+>>>  [Driver Install (DrvSetupInstallDriver) - C:\WINDOWS\system32\drivers\gwdrv.inf]
+>>>  Section start 2026/09/14 11:04:54.114
+     inf:           Provider       = Contoso Inc
+     inf:           Class GUID     = {917d8daf-de89-44b7-8907-b422ecb01f53}
+     inf:           Driver Version = 04/28/2026,2.1.835.0
+!    sig:           Signer Status = Attested
+     idb:                     Created driver INF file object 'oem41.inf' in DRIVERS database node.
+<<<  Section end 2026/09/14 11:04:54.300
+<<<  [Exit status: SUCCESS]
+
+>>>  [Setup Import Driver Package - C:\Program Files\Microsoft Office\root\Office16\OneNote\\prnms006.inf]
+>>>  Section start 2026/09/23 09:24:39.979
+     sto: Driver package already imported as 'oem12.inf'.
+<<<  Section end 2026/09/23 09:24:39.982
+<<<  [Exit status: SUCCESS]
+
+>>>  [Device Install (Hardware initiated) - USB\VID_0000&PID_0000\5&1]
+>>>  Section start 2026/09/20 12:00:00.000
+     utl:      Driver Node:
+     utl:           Status         - Selected
+     utl:           Driver INF     - broken.inf (C:\x\broken.inf)
+<<<  Section end 2026/09/20 12:00:01.000
+<<<  [Exit status: FAILURE(0xe0000203)]
+
+>>>  [Restart Device - PCI\VEN_14C3&DEV_0616&SUBSYS_0000&REV_00\4&AAAA&0&0012]
+>>>  Section start 2026/09/22 06:54:21.379
+     dvi: Device Status: 0x0180200a
+<<<  Section end 2026/09/22 06:54:27.417
+<<<  [Exit status: SUCCESS]
+
+>>>  [Device Install (Hardware initiated) - PCI\VEN_10EC&DEV_8168]
+>>>  Section start 2026/09/19 09:00:00.000
+     dvi:      Selected Driver:
+     dvi:           Description - [Realtek PCIe GbE Family Controller]
+     dvi:           InfFile     - [c:\windows\system32\driverstore\filerepository\rt640x64.inf_amd64_1\rt640x64.inf]
+     dvi:           Version     - [01/01/2024,10.68.0.0]
+<<<  Section end 2026/09/19 09:00:01.000
+<<<  [Exit status: SUCCESS]
+
+>>>  [Device Install (Hardware initiated) - PCI\VEN_10EC&DEV_9999]
+>>>  Section start 2025/01/01 09:00:00.000
+     utl:      Driver Node:
+     utl:           Status         - Selected
+     utl:           Driver INF     - old.inf (C:\x\old.inf)
+     utl:           Driver Version - 01/01/2024,1.0.0.0
+<<<  Section end 2025/01/01 09:00:01.000
+<<<  [Exit status: SUCCESS]
