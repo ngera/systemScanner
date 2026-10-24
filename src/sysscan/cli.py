@@ -307,6 +307,49 @@ def cmd_retag(args: argparse.Namespace, cfg: Config) -> int:
     return 0
 
 
+def cmd_folders(args: argparse.Namespace, cfg: Config) -> int:
+    """Measure level-1 subfolders, print a summary, and write an HTML report."""
+    from sysscan.folder_ai import enrich_folders_with_ai
+    from sysscan.foldersize import (
+        build_folder_report,
+        format_report,
+        level1_folder_sizes,
+        resolve_folder_root,
+        write_folder_reports,
+    )
+    from sysscan.store import Store
+
+    root = resolve_folder_root(args.path) if args.path else cfg.folder_root
+    root = root.resolve() if root.exists() else root
+    progress = (lambda m: None) if args.quiet else (lambda m: print(f"  · {m}", file=sys.stderr))
+    if not args.quiet:
+        print(f"Measuring level-1 folders under {root} …", file=sys.stderr)
+    rows = level1_folder_sizes(root, progress=progress)
+
+    use_ai = cfg.ai.enabled if args.ai is None else args.ai
+    if use_ai:
+        if not args.quiet:
+            print("  · Asking AI about unknown / review-first folders …", file=sys.stderr)
+        store = Store(cfg.db_path)
+        rows, ai_msgs = enrich_folders_with_ai(rows, cfg.ai, store, progress=progress)
+        for m in ai_msgs:
+            if not args.quiet:
+                print(f"  · {m}", file=sys.stderr)
+
+    report = build_folder_report(root, rows)
+    formats = [f.strip() for f in (args.format or "html,json").split(",") if f.strip()]
+    out_dir = Path(args.out) if args.out else cfg.reports_path / "folders"
+    written = write_folder_reports(report, out_dir, formats)
+
+    if not args.quiet:
+        print(format_report(root, rows))
+        for fmt, path in written.items():
+            print(f"  {fmt:>4}: {path}", file=sys.stderr)
+    if "html" in written and cfg.open_report and not args.no_open:
+        _open(written["html"])
+    return 0
+
+
 def cmd_schedule(args: argparse.Namespace, cfg: Config) -> int:
     from sysscan import schedule
 
@@ -423,6 +466,19 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--no-open", action="store_true")
     r.set_defaults(func=cmd_retag)
 
+    f = sub.add_parser("folders", help="show size of each level-1 subfolder under a root "
+                      "(default C:\\, or SYSSCAN_FOLDER_ROOT in .env); writes an HTML report")
+    f.add_argument("path", nargs="?", help="folder to measure (overrides .env / config)")
+    f.add_argument("--format", default="html,json", help="comma list of html,md,json (default html,json)")
+    f.add_argument("--out", help="output directory (default: %%LOCALAPPDATA%%\\sysscan\\reports\\folders)")
+    f.add_argument("--ai", dest="ai", action="store_true", default=None,
+                   help="use AI to classify unknown/caution folders (overrides SYSSCAN_AI)")
+    f.add_argument("--no-ai", dest="ai", action="store_false",
+                   help="skip AI folder classification")
+    f.add_argument("--no-open", action="store_true", help="don't open the HTML report")
+    f.add_argument("-q", "--quiet", action="store_true", help="no console summary / progress")
+    f.set_defaults(func=cmd_folders)
+
     sc = sub.add_parser("schedule", help="manage the daily snapshot task (Windows Task Scheduler)")
     sc.add_argument("action", choices=["install", "remove", "status"])
     sc.add_argument("--time", default="09:00", help="daily run time, HH:MM (default 09:00)")
@@ -438,7 +494,7 @@ def main(argv: list[str] | None = None) -> int:
     # `sysscan` and `sysscan --since 7d` mean `sysscan scan …`: insert the default sub-command
     # after any global options.
     commands = {"scan", "demo", "history", "open", "collectors", "set-key", "schedule", "tag", "untag", "tags",
-                "unknowns", "retag"}
+                "unknowns", "retag", "folders"}
     i = 0
     while i < len(argv) and argv[i] in ("--config", "-v", "--verbose"):
         i += 2 if argv[i] == "--config" else 1

@@ -205,6 +205,14 @@ class ClaudeDescriber:
         self.web_searches = 0
         self.provider = "claude"
 
+    def complete(self, system: str, user: str, *, max_tokens: int = 4000) -> str:
+        """Raw text completion (used by folder advice and similar helpers)."""
+        msg = self.client.messages.create(
+            model=self.model, max_tokens=max_tokens, system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        return "".join(getattr(b, "text", "") or "" for b in msg.content)
+
     def describe(self, items: list[AIItem], web: bool = False) -> dict[int, AIAnswer]:
         messages: list[dict] = [{"role": "user", "content": build_user_message(items)}]
         kwargs: dict = {"model": self.model, "max_tokens": 4000,
@@ -233,17 +241,15 @@ class OllamaDescriber:
         self.timeout = timeout
         self.provider = "ollama"
 
-    def describe(self, items: list[AIItem], web: bool = False) -> dict[int, AIAnswer]:
-        if web:
-            raise RuntimeError("Web search is only available with the Claude provider.")
+    def complete(self, system: str, user: str, *, max_tokens: int = 4000) -> str:
         payload = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": build_user_message(items)},
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
             ],
             "stream": False,
-            "options": {"temperature": 0.1},
+            "options": {"temperature": 0.1, "num_predict": max_tokens},
         }
         req = urllib.request.Request(
             f"{self.base_url}/api/chat",
@@ -262,5 +268,9 @@ class OllamaDescriber:
                 f"Cannot reach Ollama at {self.base_url} ({exc.reason}). "
                 "Is `ollama serve` running?"
             ) from exc
-        text = (data.get("message") or {}).get("content") or ""
-        return parse_response(text)
+        return (data.get("message") or {}).get("content") or ""
+
+    def describe(self, items: list[AIItem], web: bool = False) -> dict[int, AIAnswer]:
+        if web:
+            raise RuntimeError("Web search is only available with the Claude provider.")
+        return parse_response(self.complete(SYSTEM_PROMPT, build_user_message(items)))

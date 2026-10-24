@@ -69,6 +69,54 @@ def render_html(report: Report) -> str:
     return _env().get_template("report.html.j2").render(r=report, actions=ACTION_ORDER)
 
 
+def render_folders_html(report) -> str:
+    from sysscan.foldersize import human_size
+
+    env = _env()
+    env.filters["human"] = human_size
+    return env.get_template("folders.html.j2").render(
+        r=report,
+        total_human=human_size(report.total_bytes),
+        safe_human=human_size(report.bytes_for("safe")),
+        caution_human=human_size(report.bytes_for("caution")),
+        keep_human=human_size(report.bytes_for("keep")),
+        safety_rank={"safe": 0, "caution": 1, "unknown": 2, "keep": 3},
+    )
+
+
+def render_folders_markdown(report) -> str:
+    from sysscan.foldersize import human_size
+
+    total = report.total_bytes
+    lines = [
+        f"# Folder sizes on {report.host}",
+        "",
+        f"**Root:** `{report.root}` (level 1)  ",
+        f"**Generated:** {fmt_dt(report.generated_at)}  ",
+        f"**Total:** {human_size(total)} across {len(report.folders)} folders  ",
+        f"**Safe to clear:** {human_size(report.bytes_for('safe'))} · "
+        f"**Review first:** {human_size(report.bytes_for('caution'))} · "
+        f"**Do not delete:** {human_size(report.bytes_for('keep'))}",
+        "",
+        "| Folder | Size | Share | Advice | Why |",
+        "|---|---|---|---|---|",
+    ]
+    for f in report.folders:
+        pct = f.pct_of(total)
+        label = f.advice.label if f.advice else "Unknown"
+        reason = f.advice.reason if f.advice else ""
+        src = ""
+        if f.advice and f.advice.source.startswith("ai"):
+            src = " _(AI)_"
+        kind = f" [{f.advice.kind}]" if f.advice and f.advice.kind else ""
+        lines.append(
+            f"| **{_md_escape(f.name)}** | {human_size(f.bytes)} | {pct:.1f}% "
+            f"| {_md_escape(label)}{src}{kind} | {_md_escape(reason)} |"
+        )
+    lines += ["", f"_sysscan {report.tool_version} — advice is guidance only_", ""]
+    return "\n".join(lines)
+
+
 # ----------------------------------------------------------------------------- Markdown
 
 def _md_escape(s: str | None) -> str:

@@ -43,6 +43,9 @@ the result into one easy-to-read report:
   your PC.
 - 🏷️ **Your own labels.** If you know what something is, tag it once and every future report uses your
   description.
+- 💾 **Folder sizes.** `sysscan folders` measures each top-level folder under a path (default `C:\`),
+  writes an HTML report with cleanup advice (safe / review / do not delete), and can use AI to classify
+  unfamiliar folders.
 - 🖱️ **`runScan`.** No Python needed: double-click it, type it in a terminal, or let it run silently at startup.
 
 ## Quick start
@@ -92,7 +95,8 @@ sysscan collectors            # confirms the provider and that Ollama is reachab
 sysscan scan --ai
 ```
 
-Details, web search (Claude only), costs and privacy: [docs/USER_GUIDE.md §6](docs/USER_GUIDE.md#6-ai-explanations-optional).
+Details, web search (Claude only), costs and privacy: [docs/USER_GUIDE.md §7](docs/USER_GUIDE.md#7-ai-explanations-optional).
+Folder sizes: [docs/USER_GUIDE.md §5](docs/USER_GUIDE.md#5-folder-sizes-disk-space).
 
 ## The five commands you'll use most
 
@@ -100,6 +104,7 @@ Details, web search (Claude only), costs and privacy: [docs/USER_GUIDE.md §6](d
 |---|---|
 | `sysscan` | Scans now and shows what changed since the last scan |
 | `sysscan scan --since 7d` | Shows what changed in the last 7 days |
+| `sysscan folders` | Folder sizes under `C:\` (or another path) + HTML cleanup report |
 | `sysscan schedule install` | Takes a snapshot automatically every day (run once, as administrator) |
 | `sysscan unknowns` | Lists anything the report couldn't identify |
 | `sysscan tag "Name" --publisher "…" --description "…"` | Records what something is, so every future report knows it |

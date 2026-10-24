@@ -105,11 +105,15 @@ COMMANDS  (add --help after any command for its options, e.g. runScan.exe tag --
   tags                    List your tags
   retag                   Apply your tags to the latest report without rescanning
   schedule install|remove|status
+  folders [PATH]          Size of each level-1 subfolder + HTML report
+                          (default C:\\, or SYSSCAN_FOLDER_ROOT; --format / --out / --no-open)
 
 EXAMPLES
   runScan.exe --since 7d
   runScan.exe --install-startup --time 20:00 --format html,json --out "D:\\Reports"
   runScan.exe tag "PowerENGAGE" --publisher "Example Corp" --description "What it is"
+  runScan.exe folders
+  runScan.exe folders "D:\\Data"
 
 FILES
   Reports, snapshots, tags and settings: %LOCALAPPDATA%\\sysscan

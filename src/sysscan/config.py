@@ -45,6 +45,8 @@ class Config:
     extra_routine_patterns: list[str] = field(default_factory=list)
     ai: AIConfig = field(default_factory=AIConfig)
     known_software_file: Path | None = None
+    #: Root whose level-1 subfolders are sized by ``sysscan folders`` (override with CLI path).
+    folder_root: Path = field(default_factory=lambda: Path(r"C:\\"))
 
     @property
     def db_path(self) -> Path:
@@ -90,6 +92,8 @@ def apply_env_overrides(cfg: Config) -> Config:
         cfg.ai.web = flag
     if (n := os.environ.get("SYSSCAN_AI_WEB_MAX_ITEMS", "").strip()).isdigit():
         cfg.ai.web_max_items = int(n)
+    if folder_root := os.environ.get("SYSSCAN_FOLDER_ROOT", "").strip().strip('"'):
+        cfg.folder_root = Path(folder_root).expanduser()
     return cfg
 
 
@@ -117,6 +121,10 @@ def load_config(path: Path | None = None) -> Config:
     cfg.python_interpreters = list(collectors.get("python_interpreters", []))
 
     cfg.extra_routine_patterns = list(data.get("routine", {}).get("extra_patterns", []))
+
+    folders = data.get("folders", {})
+    if "root" in folders:
+        cfg.folder_root = Path(str(folders["root"])).expanduser()
 
     ai = data.get("ai", {})
     cfg.ai = AIConfig(

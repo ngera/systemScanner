@@ -10,16 +10,16 @@ Start menu).
 2. [Your first scan](#2-your-first-scan)
 3. [Reading the report](#3-reading-the-report)
 4. [Checking a specific period](#4-checking-a-specific-period)
-5. [Automatic daily snapshots](#5-automatic-daily-snapshots)
-6. [AI explanations (optional)](#6-ai-explanations-optional) — Claude or local Ollama
-
-7. [Identifying things yourself (tags)](#7-identifying-things-yourself-tags)
-8. [Using runScan (no Python needed)](#8-using-runscan-no-python-needed)
-9. [Command reference](#9-command-reference)
-10. [Settings](#10-settings)
-11. [Where sysscan keeps its files](#11-where-sysscan-keeps-its-files)
-12. [Troubleshooting](#12-troubleshooting)
-13. [Uninstalling](#13-uninstalling)
+5. [Folder sizes (disk space)](#5-folder-sizes-disk-space)
+6. [Automatic daily snapshots](#6-automatic-daily-snapshots)
+7. [AI explanations (optional)](#7-ai-explanations-optional) — Claude or local Ollama
+8. [Identifying things yourself (tags)](#8-identifying-things-yourself-tags)
+9. [Using runScan (no Python needed)](#9-using-runscan-no-python-needed)
+10. [Command reference](#10-command-reference)
+11. [Settings](#11-settings)
+12. [Where sysscan keeps its files](#12-where-sysscan-keeps-its-files)
+13. [Troubleshooting](#13-troubleshooting)
+14. [Uninstalling](#14-uninstalling)
 
 ---
 
@@ -32,7 +32,7 @@ Choose **one** of these options.
 1. Download **`runScan.exe`** and **`runScan.com`** from the project's **Releases** page on GitHub.
 2. Put **both** in the same folder, for example `C:\Tools\sysscan\`.
 3. Double-click `runScan.exe`, or type `runScan` in a terminal in that folder. See
-   [section 8](#8-using-runscan-no-python-needed) for everything it can do.
+   [section 9](#9-using-runscan-no-python-needed) for everything it can do.
 
 > Windows may show **"Windows protected your PC"** the first time, because the files aren't digitally
 > signed. Click **More info → Run anyway**.
@@ -96,7 +96,7 @@ On the very first scan there is **no earlier snapshot to compare with**, so syss
 - Programs removed before this first scan may not show up at all.
 
 From the **second scan on**, sysscan compares snapshots, and reports become much more accurate. That's
-why the [daily snapshot](#5-automatic-daily-snapshots) is worth setting up.
+why the [daily snapshot](#6-automatic-daily-snapshots) is worth setting up.
 
 ### Just want to see what a report looks like?
 
@@ -163,12 +163,12 @@ Provider, Date) to sort.
 | `AI` | Written by AI — Claude or Ollama (only if you turned AI on) |
 | `AI · unsure` | The model wasn't confident. Worth checking |
 | `AI + web` | Claude confirmed it with a web search; a **source** link shows where |
-| `yours` | Your own tag (see [section 7](#7-identifying-things-yourself-tags)) |
+| `yours` | Your own tag (see [section 8](#8-identifying-things-yourself-tags)) |
 
 A small **AI** or **yours** label next to the provider means the maker came from there too.
 
 - **Evidence:** click to see exactly which Windows records support that row.
-- **Tag it:** appears on rows that couldn't be fully identified; see [section 7](#7-identifying-things-yourself-tags).
+- **Tag it:** appears on rows that couldn't be fully identified; see [section 8](#8-identifying-things-yourself-tags).
 - **Sources checked** (bottom of the page): what was scanned, how many items each source found, and
   whether any failed.
 
@@ -191,7 +191,50 @@ report says so.
 
 ---
 
-## 5. Automatic daily snapshots
+## 5. Folder sizes (disk space)
+
+As well as software changes, sysscan can show **which folders are using space** and which ones are
+usually safe to clear.
+
+```powershell
+sysscan folders                         # each folder directly under C:\
+sysscan folders D:\Data                 # or under any path you choose
+sysscan folders C:\ProgramData          # dig into a large folder from the first report
+```
+
+It measures every **level-1** subfolder (immediate children only; each child's size includes everything
+inside it), prints a summary in the terminal, and opens an **HTML report** with:
+
+- Size and share of the total for each folder
+- Cleanup advice: **Safe to clear**, **Review first**, or **Do not delete**
+- Filters and search
+
+Built-in rules cover common Windows paths (`Windows`, `Users`, `Temp`, `Recovery`, and so on). When AI
+is on (`SYSSCAN_AI=true`, or `--ai`), folders marked unknown or “review first” are also classified by
+the LLM from the folder name and a sample of child **names** (no file contents). Use `--no-ai` to skip
+that. Answers are cached like software descriptions.
+
+Configure the default root in `.env`:
+
+```ini
+SYSSCAN_FOLDER_ROOT=C:\
+```
+
+Or in `config.toml`:
+
+```toml
+[folders]
+root = "C:\\"
+```
+
+Reports are saved under `%LOCALAPPDATA%\sysscan\reports\folders\` (override with `--out`).
+
+> Advice is guidance only. Confirm before deleting anything important. Never wipe `C:\Windows`,
+> `C:\Users`, or all of `C:\ProgramData`.
+
+---
+
+## 6. Automatic daily snapshots
 
 Snapshots are what let sysscan spot removals and old → new versions reliably. Set it up once:
 
@@ -221,7 +264,7 @@ sysscan open                            # open the most recent report
 
 ---
 
-## 6. AI explanations (optional)
+## 7. AI explanations (optional)
 
 For software sysscan doesn't recognise, it can ask an AI to explain what it is and who makes it.
 This is **off by default**. Two providers are supported:
@@ -308,7 +351,7 @@ sysscan set-key          # store a Claude API key in Windows Credential Manager 
 ```
 
 If several settings disagree, the command-line option wins, then `.env`, then the
-[settings file](#10-settings).
+[settings file](#11-settings).
 
 ### Web search (optional second try; Claude only)
 
@@ -341,7 +384,7 @@ folder, and your computer's name are never sent.
 
 ---
 
-## 7. Identifying things yourself (tags)
+## 8. Identifying things yourself (tags)
 
 Sometimes neither sysscan nor the AI knows what something is. If you find out (for example by searching
 online), **tag** it. Your tag is used in every future report and always wins over sysscan's and the AI's
@@ -402,13 +445,13 @@ sysscan tag '6365217CE6EB4|^Microsoft Defender$' --regex --publisher 'Microsoft'
 
 Tags are stored in `%LOCALAPPDATA%\sysscan\known_software.toml`, a plain text file you can also edit in
 Notepad. To use the same tags on several PCs, point sysscan at a shared copy (e.g. on OneDrive); see
-`known_software` in [Settings](#10-settings).
+`known_software` in [Settings](#11-settings).
 
 Names are matched loosely: capital letters, version numbers and "(x64)"/"(x86)" are ignored.
 
 ---
 
-## 8. Using runScan (no Python needed)
+## 9. Using runScan (no Python needed)
 
 `runScan` is the same tool packaged so Python isn't needed. It comes as **two files that belong together
 in the same folder**:
@@ -463,10 +506,10 @@ Use `runScan --remove-startup` to stop it.
 | `--startup [scan options]` | Silent scan: no window, no browser (what the task runs) |
 | `--no-elevate` | Double-click without asking for admin rights |
 
-Everything else (`--since`, `--format`, `--out`, `--ai`, `tag`, `history` …) is the same as `sysscan`.
+Everything else (`--since`, `--format`, `--out`, `--ai`, `tag`, `history`, `folders` …) is the same as `sysscan`.
 
 To use AI with runScan, put your `.env` file **next to the two files** or in `%LOCALAPPDATA%\sysscan\`
-(Claude key and/or `SYSSCAN_AI_PROVIDER=ollama` — see [section 6](#6-ai-explanations-optional)).
+(Claude key and/or `SYSSCAN_AI_PROVIDER=ollama` — see [section 7](#7-ai-explanations-optional)).
 
 ### Passing options at startup
 
@@ -515,7 +558,7 @@ of a single file: it starts faster and antivirus programs flag it less often.
 
 ---
 
-## 9. Command reference
+## 10. Command reference
 
 Every command also accepts `--help`, e.g. `sysscan scan --help`.
 
@@ -538,12 +581,25 @@ Every command also accepts `--help`, e.g. `sysscan scan --help`.
 | `sysscan open [N]` | Open the latest report, or the report of scan number N |
 | `sysscan collectors` | Show which sources can run on this PC, and whether AI is set up |
 
+### Folder sizes
+
+| Command | What it does |
+|---|---|
+| `sysscan folders [PATH]` | Size of each level-1 subfolder under PATH (default `C:\` or `SYSSCAN_FOLDER_ROOT`) |
+| `  --format html,md,json` | Report formats (default `html,json`) |
+| `  --out FOLDER` | Where to save the report (default `%LOCALAPPDATA%\sysscan\reports\folders`) |
+| `  --ai` / `--no-ai` | Use AI to classify unknown/review-first folders (same providers as §7) |
+| `  --no-open` | Don't open the HTML report |
+| `  -q`, `--quiet` | No console summary / progress |
+
+See [section 5](#5-folder-sizes-disk-space).
+
 ### Identifying software
 
 | Command | What it does |
 |---|---|
 | `sysscan unknowns [N] [--edit]` | List items the latest report (or scan N) couldn't identify; `--edit` opens a file to fill in |
-| `sysscan tag NAME --publisher … --description …` | Add or update your own identification (options in [section 7](#7-identifying-things-yourself-tags)) |
+| `sysscan tag NAME --publisher … --description …` | Add or update your own identification (options in [section 8](#8-identifying-things-yourself-tags)) |
 | `sysscan untag NAME [--regex]` | Remove a tag |
 | `sysscan tags` | List your tags |
 | `sysscan retag [N] [--no-open]` | Apply your current tags to the latest report (or scan N) without rescanning |
@@ -573,13 +629,13 @@ Every command also accepts `--help`, e.g. `sysscan scan --help`.
 
 ---
 
-## 10. Settings
+## 11. Settings
 
 Most people never need these. There are two optional places for settings.
 
 ### `.env` file
 
-Good for AI settings and switches (see [section 6](#6-ai-explanations-optional)):
+Good for AI settings and switches (see [section 7](#7-ai-explanations-optional)):
 
 | Setting | Meaning | Default |
 |---|---|---|
@@ -591,6 +647,7 @@ Good for AI settings and switches (see [section 6](#6-ai-explanations-optional))
 | `SYSSCAN_AI_MAX_ITEMS` | Most items sent to the AI per scan | `150` |
 | `SYSSCAN_AI_WEB` | `true` / `false`: web-search second try (Claude only) | `false` |
 | `SYSSCAN_AI_WEB_MAX_ITEMS` | Most items web-searched per scan | `15` |
+| `SYSSCAN_FOLDER_ROOT` | Default root for `sysscan folders` | `C:\` |
 | `SYSSCAN_HOME` | Store all sysscan data in a different folder | `%LOCALAPPDATA%\sysscan` |
 
 ### `config.toml`
@@ -612,6 +669,9 @@ python_interpreters = ["C:/Tools/Python312/python.exe"]      # extra Pythons to 
 [routine]
 extra_patterns = ["^Zoom", "OneDrive"]       # extra things to always treat as routine noise
 
+[folders]
+# root = "C:\\"                              # default for `sysscan folders`
+
 [ai]
 enabled = false
 provider = "claude"          # or "ollama"
@@ -622,14 +682,15 @@ web = false
 
 ---
 
-## 11. Where sysscan keeps its files
+## 12. Where sysscan keeps its files
 
 Everything is in **`%LOCALAPPDATA%\sysscan\`**. Paste that into File Explorer's address bar to open it.
 
 | File or folder | What it is |
 |---|---|
-| `reports\` | Every report: `sysscan_<date>_<time>.html`, `.md` and `.json` |
-| `sysscan.db` | Snapshots and saved AI answers |
+| `reports\` | Software-change reports: `sysscan_<date>_<time>.html`, `.md` and `.json` |
+| `reports\folders\` | Folder-size reports: `folders_<date>_<time>.html`, `.json` (and `.md` if requested) |
+| `sysscan.db` | Snapshots and saved AI answers (including folder classifications) |
 | `known_software.toml` | Your tags |
 | `config.toml` | Your settings (optional) |
 | `.env` | AI settings (Claude key and/or Ollama provider) and other switches (optional) |
@@ -639,7 +700,7 @@ Deleting `sysscan.db` starts fresh: the next scan behaves like a first scan.
 
 ---
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 **"sysscan is not recognized…"**
 
@@ -689,7 +750,7 @@ Create a key inside a workspace in the Anthropic Console and use that one.
 
 **AI: "the Anthropic SDK is missing"**
 
-Install the AI add-on (see [section 6](#6-ai-explanations-optional)). Only needed for Claude.
+Install the AI add-on (see [section 7](#7-ai-explanations-optional)). Only needed for Claude.
 
 **AI: "Cannot reach Ollama…"**
 
@@ -713,7 +774,7 @@ reporting a problem, include that part of the log, and first remove anything per
 
 ---
 
-## 13. Uninstalling
+## 14. Uninstalling
 
 ```powershell
 sysscan schedule remove                          # 1. stop automatic scans (admin PowerShell)

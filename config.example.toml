@@ -20,6 +20,10 @@ python_interpreters = []
 # Regexes (case-insensitive) for updates you consider routine noise. They're collapsed in the report.
 extra_patterns = []
 
+[folders]
+# Root for `sysscan folders` (level-1 subfolder sizes). Override with SYSSCAN_FOLDER_ROOT or a CLI path.
+# root = "C:\\"
+
 [ai]
 # Tip: you can also use a .env file instead (see .env.example): SYSSCAN_AI=true overrides `enabled` below.
 # Plain-language descriptions and publishers for software the rules and the PC's own metadata can't explain.

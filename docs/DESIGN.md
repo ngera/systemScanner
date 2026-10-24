@@ -124,9 +124,18 @@ way. Details that make the pair behave:
 Alternatives considered: a single windowed exe that attaches to the parent console prints *after* the
 shell prompt returns; a single console exe that hides its own window flashes a console at every sign-in.
 
+## Folder sizes
+
+`sysscan folders` is a separate command from the software-change pipeline. It walks level-1 children of
+a configurable root, totals each child's on-disk size (without following junctions), applies built-in
+cleanup heuristics (`folderadvice.py`), optionally asks the same Claude/Ollama stack to classify
+unknown/caution folders from path + child names only (`folder_ai.py`), and writes an HTML report.
+It does not feed the snapshot database's change diff.
+
 ## Known limitations and future work
 
 - Changelogs: not stored anywhere locally.
 - Portable apps: not tracked.
+- Folder-size advice is heuristic (and optionally AI-assisted); it never deletes anything for you.
 - The pip collector treats an interpreter it couldn't query as "no packages". If that interpreter was queried successfully before, the diff could show false uninstalls. A per-interpreter coverage record is planned.
 - A forensic-grade mode (Amcache.hve, NTFS USN journal) would add precise first-run and file-creation times at the cost of needing admin and a volume shadow copy.

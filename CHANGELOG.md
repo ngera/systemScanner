@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Folder size scan.** `sysscan folders [PATH]` measures each level-1 subfolder under a root (default
+  `C:\`, or `SYSSCAN_FOLDER_ROOT` / `[folders] root`), prints a summary, and writes an HTML/JSON report
+  with cleanup advice (safe / review first / do not delete). Optional AI (same Claude/Ollama settings as
+  software descriptions) classifies unknown and review-first folders from the path and a sample of child
+  names. See the user guide §5.
 - **Local Ollama AI provider.** Set `SYSSCAN_AI_PROVIDER=ollama` (and `SYSSCAN_AI_MODEL`, e.g. `llama3.2`)
   to enrich descriptions/publishers via a local Ollama daemon — no API key, nothing leaves the machine.
   Claude remains the default; web search stays Claude-only. `sysscan collectors` reports Ollama reachability.
