@@ -1,7 +1,42 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 — 2026-11-18
 
+- **Remote access & monitoring check** (`sysscan security`, and part of every scan). It reports:
+  - *Ways into this PC*: Remote Desktop (and whether Network Level Authentication is on), Remote Assistance,
+    an incoming VPN server (RRAS or VPN ports open to the network), SSH and WinRM servers, Tailscale/ZeroTier/
+    Hamachi-style networks, and network listeners running from user folders.
+  - *Remote-control tools*: about 25 tools (TeamViewer, AnyDesk, RustDesk, Chrome Remote Desktop, VNC,
+    ScreenConnect, Quick Assist…), graded as installed, auto-starting, or connected right now.
+  - *Recent remote sessions*: Remote Desktop sign-ins (Security 4624 type 10, events 1149/21/25), SSH sign-ins,
+    and incoming TeamViewer and AnyDesk sessions from their own logs, grouped by user and source address.
+    Live Remote Desktop sessions are flagged.
+  - *Monitoring & keylogging signs*: known monitoring/keylogger products, extra keyboard filter drivers,
+    sign-in screen accessibility tool tampering (IFEO debugger or non-Microsoft files), and unsigned
+    auto-start programs in user folders.
+  - *Protection*: Defender status, recent detections, other antivirus, firewall profiles.
+- Findings that are new or worse since the previous check are marked **NEW**; resolved ones are listed.
+  History is kept in new `security_runs`/`security_findings` tables, so security-only runs don't affect scan
+  baselines.
+- **Trusted list** (`trusted.toml`): `sysscan trust KEY --note …`, `sysscan untrust`, `sysscan trusted`, and a
+  *Trust this* button in the report. A trailing `*` matches many keys.
+- `sysscan scan --no-security`, `SYSSCAN_SECURITY=false` and `[security] enabled/history_days` in config.
+  `sysscan security` exits with code 2 when something needs investigating.
+- Every finding that needs attention shows **where** (exact file paths with signer, version info, SHA-256 and
+  a VirusTotal link, plus the registry value, service, task or port involved) and **how to fix** it: numbered
+  steps with copy-ready PowerShell commands for that exact item. sysscan never runs them.
+- **Optional AI lookup** (`sysscan security --ai`, `SYSSCAN_SECURITY_AI`): Claude (with web search) or Ollama
+  says what each flagged file is, gives a verdict, reasons, steps and sources. Only file facts are sent (name,
+  folder without your user name, signer, version info, hash); answers are cached. Security findings
+  themselves are not sent to the AI.
+- Installed programs now record their uninstall command, used in the fix steps.
+- Fixed false alarms found on a real Windows 11 Home PC: empty results from Windows PowerShell 5.1 reported as
+  sign-in tool tampering and as a Defender threat; a WireGuard-based VPN client (e.g. McAfee's) reported as an
+  incoming VPN server; Store apps (Teams) and tasks pointing at missing files reported as unsigned auto-start
+  programs. `qwinsta` is skipped where Windows doesn't include it (Home). Validly signed touchpad/hotkey
+  keyboard drivers (Synaptics, ELAN, Alps, HP) are now information instead of a warning.
+- Fixed: `sysscan tags` and `sysscan untag` crashed because `KnownSoftware.remove`/`describe` were missing.
+- Fixed: `runScan folders` was treated as scan options instead of the `folders` command.
 - **Folder size scan.** `sysscan folders [PATH]` measures each level-1 subfolder under a root (default
   `C:\`, or `SYSSCAN_FOLDER_ROOT` / `[folders] root`), prints a summary, and writes an HTML/JSON report
   with cleanup advice (safe / review first / do not delete). Optional AI (same Claude/Ollama settings as

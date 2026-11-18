@@ -17,5 +17,6 @@ reports/
 sysscan.log
 .env
 Claude outputs/
+cbs-nov9/
 .idea/
 .vscode/

@@ -14,12 +14,13 @@ Start menu).
 6. [Automatic daily snapshots](#6-automatic-daily-snapshots)
 7. [AI explanations (optional)](#7-ai-explanations-optional) — Claude or local Ollama
 8. [Identifying things yourself (tags)](#8-identifying-things-yourself-tags)
-9. [Using runScan (no Python needed)](#9-using-runscan-no-python-needed)
-10. [Command reference](#10-command-reference)
-11. [Settings](#11-settings)
-12. [Where sysscan keeps its files](#12-where-sysscan-keeps-its-files)
-13. [Troubleshooting](#13-troubleshooting)
-14. [Uninstalling](#14-uninstalling)
+9. [Remote access & monitoring check](#9-remote-access--monitoring-check)
+10. [Using runScan (no Python needed)](#10-using-runscan-no-python-needed)
+11. [Command reference](#11-command-reference)
+12. [Settings](#12-settings)
+13. [Where sysscan keeps its files](#13-where-sysscan-keeps-its-files)
+14. [Troubleshooting](#14-troubleshooting)
+15. [Uninstalling](#15-uninstalling)
 
 ---
 
@@ -32,7 +33,7 @@ Choose **one** of these options.
 1. Download **`runScan.exe`** and **`runScan.com`** from the project's **Releases** page on GitHub.
 2. Put **both** in the same folder, for example `C:\Tools\sysscan\`.
 3. Double-click `runScan.exe`, or type `runScan` in a terminal in that folder. See
-   [section 9](#9-using-runscan-no-python-needed) for everything it can do.
+   [section 10](#10-using-runscan-no-python-needed) for everything it can do.
 
 > Windows may show **"Windows protected your PC"** the first time, because the files aren't digitally
 > signed. Click **More info → Run anyway**.
@@ -117,6 +118,9 @@ This makes a sample report from made-up data. Nothing on your PC is scanned.
   that's been set aside. Click a card to jump to that section.
 - **"Good to know" box:** anything that limits the report, such as a first scan, not running as
   admin, a source that failed, or items that still need identifying.
+
+A **Remote access & monitoring** section (see [section 9](#9-remote-access--monitoring-check)) appears at the
+top when something needs investigating, and otherwise below the list of changes.
 
 ### Filters
 
@@ -351,7 +355,7 @@ sysscan set-key          # store a Claude API key in Windows Credential Manager 
 ```
 
 If several settings disagree, the command-line option wins, then `.env`, then the
-[settings file](#11-settings).
+[settings file](#12-settings).
 
 ### Web search (optional second try; Claude only)
 
@@ -445,13 +449,128 @@ sysscan tag '6365217CE6EB4|^Microsoft Defender$' --regex --publisher 'Microsoft'
 
 Tags are stored in `%LOCALAPPDATA%\sysscan\known_software.toml`, a plain text file you can also edit in
 Notepad. To use the same tags on several PCs, point sysscan at a shared copy (e.g. on OneDrive); see
-`known_software` in [Settings](#11-settings).
+`known_software` in [Settings](#12-settings).
 
 Names are matched loosely: capital letters, version numbers and "(x64)"/"(x86)" are ignored.
 
 ---
 
-## 9. Using runScan (no Python needed)
+## 9. Remote access & monitoring check
+
+Every scan also checks whether anyone **could** reach or watch this PC, and whether anyone **did**.
+You can run the check on its own at any time:
+
+```powershell
+sysscan security              # last 30 days of remote sessions
+sysscan security --days 90    # look further back
+```
+
+Run it **as administrator**: Remote Desktop sign-ins are recorded in the Security log, which only
+administrators can read. Without admin rights the report says what it couldn't see.
+
+### What it looks at
+
+| Part | What it checks |
+|---|---|
+| **Ways into this PC** | Remote Desktop and Remote Assistance settings, an incoming VPN server (Windows "Incoming connection" / RRAS, or VPN ports open to the network), SSH and remote PowerShell servers, private networks such as Tailscale, ZeroTier or Hamachi, and programs in user folders that accept network connections |
+| **Remote-control tools** | TeamViewer, AnyDesk, RustDesk, Chrome Remote Desktop, VNC, Splashtop, ScreenConnect, Quick Assist and about 20 others: installed, starting automatically, or **connected right now** |
+| **Recent remote sessions** | Who signed in over Remote Desktop or SSH, from which address and when (Windows' event logs), plus incoming TeamViewer and AnyDesk sessions from their own logs. Anyone connected **right now** is flagged at the top |
+| **Monitoring & keylogging signs** | Known monitoring and keylogger products, extra drivers attached to the keyboard, tampering with the sign-in screen's accessibility tools (a classic backdoor), and unsigned programs that start automatically from user folders |
+| **Protection** | Whether Microsoft Defender (or another antivirus) is on and up to date, threats it found in the last 30 days, and whether the firewall is on |
+
+Each finding is one of: 🔴 **to investigate**, ⚠️ **worth a look**, ✅ **fine**, or ℹ️ **for information**.
+
+### Where the problem is, and how to fix it
+
+Every finding that needs attention shows:
+
+- **Where:** the exact files involved (with a **Copy path** button), plus the registry value, service,
+  scheduled task or port behind it. For each file sysscan also shows whether it's digitally signed and by
+  whom, the company and product written into the file, its version and date, and its **SHA-256 hash** with a
+  **Check on VirusTotal** link (VirusTotal compares the hash with dozens of antivirus engines; the file
+  itself is not uploaded).
+- **How to fix:** numbered steps for that exact finding, such as stopping and disabling *that* service,
+  removing *that* auto-start entry (after backing it up), uninstalling with the program's own uninstaller,
+  signing out a remote session, or turning Remote Desktop off. Each step has a PowerShell command with a
+  **Copy** button. **sysscan never runs these commands**: read each one, then paste it into PowerShell
+  opened as administrator. Steps that check a file come before steps that remove it.
+
+The console summary of `sysscan security` lists the paths too; the full steps are in the report.
+
+### Let the AI look up what a file is (optional)
+
+```powershell
+sysscan security --ai
+```
+
+For each file behind a finding that needs attention, sysscan asks your AI provider what the program is and
+whether it's safe. The report then shows a verdict (**Legitimate**, **Potentially unwanted**, **Suspicious**,
+**Likely malicious** or **Unknown**), what the program normally does, the reasons, suggested steps and, with
+Claude, the web pages it used.
+
+- **Claude** searches the web for each file (its hash, name, signer and product), on reputable sources such as
+  the maker's site, Microsoft, VirusTotal and security vendors. Each search costs about $0.01, and at most 15
+  files are looked up per run. Turn the searching off with `SYSSCAN_SECURITY_AI_WEB=false`.
+- **Ollama** answers from the model's own knowledge, with no web search, so rare files usually come back
+  as "Unknown".
+- **What is sent:** only facts about each file: its name, the folder with your user name replaced by
+  `%USERPROFILE%`, its signature and signer, the version info inside the file, its SHA-256 hash, and the
+  finding's title. **Never sent:** your user name, computer name, IP addresses, remote-session details, other
+  findings, or the file's contents. Genuine Microsoft-signed files and trusted findings are skipped.
+- Answers are saved for 30 days (7 for "Unknown"), so the same file isn't looked up every time.
+- A confident "Likely malicious" raises a ⚠️ to 🔴. The AI never lowers a warning. **AI can be wrong**: treat
+  its answer as a lead and confirm with Defender or VirusTotal before deleting anything.
+
+To use it on every check, set `SYSSCAN_SECURITY_AI=true` in `.env` (or `[security] ai = true`). It uses the
+same AI settings as software descriptions ([section 7](#7-ai-explanations-optional)). In a normal scan, add `--security-ai`.
+
+### What "new since the last check" means
+
+sysscan remembers the previous check. Anything that's new or got worse is marked **NEW** and listed at
+the top, so a remote tool that appeared overnight, or Remote Desktop being switched on, stands out.
+Problems that went away are listed as "gone". In a normal scan report, the security section moves to the
+top whenever something needs investigating; otherwise it sits below the list of changes.
+
+### Trusting things you use on purpose
+
+If you use AnyDesk yourself, or Tailscale to reach your PC from your laptop, you don't want it flagged
+every time. Click **Trust this** on the finding (it copies a command) and paste it into PowerShell:
+
+```powershell
+sysscan trust 'tools:remote:anydesk' --note 'my own AnyDesk'
+sysscan trust 'sessions:anydesk:*' --note 'my sessions from my laptop'   # * matches many
+sysscan trusted                      # list what you trust
+sysscan untrust 'tools:remote:anydesk'
+```
+
+Trusted findings stay in the report, greyed out with your note, but no longer count as problems. They're
+saved in `%LOCALAPPDATA%\sysscan\trusted.toml`.
+
+### What to do if something looks wrong
+
+1. **Someone connected right now and it isn't you:** disconnect from the internet (Wi-Fi off or unplug).
+2. Uninstall remote tools you don't use, and turn off Remote Desktop in *Settings → System → Remote Desktop*.
+3. Run a **Microsoft Defender Offline scan** (*Windows Security → Virus & threat protection → Scan options*).
+4. Change your important passwords **from a different device**, starting with email and banking.
+
+### What it can't do
+
+- **It can't prove a PC is clean.** Well-made spyware hides from exactly these checks. A clean result
+  means none of the usual signs were found.
+- **Keylogging is detected only by its signs** (known products, keyboard drivers, suspicious auto-start
+  programs). There's no direct way to see a keystroke being recorded.
+- Event logs have a size limit; on a busy PC, old sessions may already have been overwritten.
+- Screen sharing inside Teams, Zoom or a browser isn't remote control and isn't reported.
+
+The check only reads; it never changes anything. Its findings are **not sent to the AI**; only with the
+AI lookup turned on are facts about the flagged *files* sent (see above).
+
+To skip it during normal scans use `sysscan scan --no-security`, or turn it off with
+`SYSSCAN_SECURITY=false` in `.env` or `[security] enabled = false` in `config.toml`.
+
+---
+
+## 10. Using runScan (no Python needed)
 
 `runScan` is the same tool packaged so Python isn't needed. It comes as **two files that belong together
 in the same folder**:
@@ -558,7 +677,7 @@ of a single file: it starts faster and antivirus programs flag it less often.
 
 ---
 
-## 10. Command reference
+## 11. Command reference
 
 Every command also accepts `--help`, e.g. `sysscan scan --help`.
 
@@ -576,6 +695,7 @@ Every command also accepts `--help`, e.g. `sysscan scan --help`.
 | `  --no-open` | Don't open the report in the browser |
 | `  -q`, `--quiet` | No output in the window |
 | `  --only a,b` / `--skip a,b` | Run only, or skip, some sources (names from `sysscan collectors`) |
+| `  --no-security` | Skip the remote access & monitoring check |
 | `sysscan demo` | Make a sample report from made-up data |
 | `sysscan history` | List past scans and their report files |
 | `sysscan open [N]` | Open the latest report, or the report of scan number N |
@@ -604,6 +724,19 @@ See [section 5](#5-folder-sizes-disk-space).
 | `sysscan tags` | List your tags |
 | `sysscan retag [N] [--no-open]` | Apply your current tags to the latest report (or scan N) without rescanning |
 
+### Remote access & monitoring
+
+| Command | What it does |
+|---|---|
+| `sysscan security [--days N]` | Just the remote access & monitoring check (also `--format`, `--out`, `--no-open`, `-q`) |
+| `sysscan trust KEY [--note "…"]` | Mark a finding as checked and trusted (`*` at the end matches many) |
+| `sysscan untrust KEY` | Remove it from the trusted list |
+| `sysscan trusted` | List trusted findings |
+| `sysscan security --ai` | Also have the AI look up what each flagged file is (`--no-ai` to skip it) |
+| `sysscan scan --security-ai` | The same during a normal scan |
+
+`sysscan security` exits with code 2 when something needs investigating, so scripts can react to it.
+
 ### Setup
 
 | Command | What it does |
@@ -629,7 +762,7 @@ See [section 5](#5-folder-sizes-disk-space).
 
 ---
 
-## 11. Settings
+## 12. Settings
 
 Most people never need these. There are two optional places for settings.
 
@@ -648,6 +781,10 @@ Good for AI settings and switches (see [section 7](#7-ai-explanations-optional))
 | `SYSSCAN_AI_WEB` | `true` / `false`: web-search second try (Claude only) | `false` |
 | `SYSSCAN_AI_WEB_MAX_ITEMS` | Most items web-searched per scan | `15` |
 | `SYSSCAN_FOLDER_ROOT` | Default root for `sysscan folders` | `C:\` |
+| `SYSSCAN_SECURITY` | `true` / `false`: include the remote access & monitoring check in scans | `true` |
+| `SYSSCAN_SECURITY_AI` | `true` / `false`: AI lookup of files the security check flags | `false` |
+| `SYSSCAN_SECURITY_AI_WEB` | `true` / `false`: with Claude, research each file with web search | `true` |
+| `SYSSCAN_SECURITY_AI_MAX_ITEMS` | Most files looked up per check | `15` |
 | `SYSSCAN_HOME` | Store all sysscan data in a different folder | `%LOCALAPPDATA%\sysscan` |
 
 ### `config.toml`
@@ -672,6 +809,13 @@ extra_patterns = ["^Zoom", "OneDrive"]       # extra things to always treat as r
 [folders]
 # root = "C:\\"                              # default for `sysscan folders`
 
+[security]
+enabled = true                               # include the remote access & monitoring check in scans
+history_days = 30                            # how far `sysscan security` looks back for sessions
+ai = false                                   # AI lookup of flagged files (or `sysscan security --ai`)
+ai_web = true                                # with Claude, search the web for each file
+ai_max_items = 15
+
 [ai]
 enabled = false
 provider = "claude"          # or "ollama"
@@ -682,16 +826,17 @@ web = false
 
 ---
 
-## 12. Where sysscan keeps its files
+## 13. Where sysscan keeps its files
 
 Everything is in **`%LOCALAPPDATA%\sysscan\`**. Paste that into File Explorer's address bar to open it.
 
 | File or folder | What it is |
 |---|---|
-| `reports\` | Software-change reports: `sysscan_<date>_<time>.html`, `.md` and `.json` |
+| `reports\` | Software-change reports: `sysscan_<date>_<time>.html`, `.md` and `.json` (`security_…` for `sysscan security`) |
 | `reports\folders\` | Folder-size reports: `folders_<date>_<time>.html`, `.json` (and `.md` if requested) |
-| `sysscan.db` | Snapshots and saved AI answers (including folder classifications) |
+| `sysscan.db` | Snapshots, saved AI answers (including folder classifications) and past security checks |
 | `known_software.toml` | Your tags |
+| `trusted.toml` | Security findings you've marked as trusted |
 | `config.toml` | Your settings (optional) |
 | `.env` | AI settings (Claude key and/or Ollama provider) and other switches (optional) |
 | `sysscan.log` | A log for troubleshooting |
@@ -700,7 +845,7 @@ Deleting `sysscan.db` starts fresh: the next scan behaves like a first scan.
 
 ---
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 **"sysscan is not recognized…"**
 
@@ -774,7 +919,7 @@ reporting a problem, include that part of the log, and first remove anything per
 
 ---
 
-## 14. Uninstalling
+## 15. Uninstalling
 
 ```powershell
 sysscan schedule remove                          # 1. stop automatic scans (admin PowerShell)

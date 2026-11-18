@@ -35,6 +35,8 @@ class ScanOptions:
     use_ai: bool = False
     only: list[str] | None = None
     skip: list[str] | None = None
+    security: bool = True  # also run the remote access & monitoring check
+    security_ai: bool | None = None  # AI lookup of flagged files (None = from settings)
 
 
 def select_collectors(cfg: Config, opts: ScanOptions) -> list[Collector]:
@@ -217,13 +219,86 @@ def run_scan(cfg: Config, opts: ScanOptions, store: Store, progress: Progress = 
         warnings.append("Some sources failed and were left out: " + ", ".join(failed)
                         + ". See the source table at the end.")
 
+    security = None
+    if opts.security and cfg.security_enabled:
+        from sysscan.security import run_security
+
+        try:
+            security = run_security(cfg, store, since=since, installed_names=installed_names(items),
+                                    progress=progress, scan_id=scan_id, installed_info=installed_details(items),
+                                    use_ai=opts.security_ai)
+            if security.count("alert"):
+                warnings.insert(0, f"The remote access & monitoring check found {security.count('alert')} item(s) "
+                                   "that need attention. See that section below.")
+        except Exception:
+            log.exception("security check failed")
+            warnings.append("The remote access & monitoring check failed; see sysscan.log.")
+
     return Report(
         host=host, generated_at=utcnow(), period_start=since, period_end=until, scan_id=scan_id,
         is_admin=admin, tool_version=__version__, changes=changes,
         baseline_at=baseline.started_at if baseline and end_scan and baseline.id != end_scan.id else None,
         comparison_end=end_scan.started_at if end_scan else None,
-        collector_status=list(statuses.values()), warnings=warnings, ai_used=opts.use_ai,
+        collector_status=list(statuses.values()), warnings=warnings, ai_used=opts.use_ai, security=security,
     )
+
+
+def installed_names(items: list[InventoryItem]) -> list[str]:
+    """Names of installed programs and Store apps, for matching remote-control / monitoring tools."""
+    return sorted({i.name for i in items if i.source in ("registry", "appx")})
+
+
+def installed_details(items: list[InventoryItem]) -> dict[str, dict]:
+    """Install folder and uninstall command per installed program, for fix steps and file checks."""
+    out: dict[str, dict] = {}
+    for i in items:
+        if i.source in ("registry", "appx") and i.name not in out:
+            out[i.name] = {"location": str(i.extra.get("install_location") or i.extra.get("install_dir") or "").strip().strip('"'),
+                           "uninstall": str(i.extra.get("uninstall") or "").strip()}
+    return out
+
+
+def security_only(cfg: Config, store: Store, days: int | None = None, progress: Progress = lambda _m: None,
+                  use_ai: bool | None = None) -> Report:
+    """`sysscan security`: just the remote access & monitoring check, with session history for `days` days."""
+    from sysscan.collectors.appx import AppxCollector
+    from sysscan.collectors.uninstall_registry import UninstallRegistryCollector
+    from sysscan.security import run_security
+
+    now = utcnow()
+    since = now - timedelta(days=days or cfg.security_history_days)
+    ctx = ScanContext(config=cfg, is_admin=is_admin(), now=now)
+    items: list[InventoryItem] = []
+    for c in (UninstallRegistryCollector(), AppxCollector()):
+        ok, _ = c.available()
+        if ok:
+            try:
+                progress(f"Inventory: {c.title}")
+                items += c.inventory(ctx)
+            except Exception:
+                log.exception("inventory for security check failed")
+    security = run_security(cfg, store, since=since, installed_names=installed_names(items), progress=progress,
+                            installed_info=installed_details(items), use_ai=use_ai)
+    return Report(host=platform.node(), generated_at=utcnow(), period_start=since, period_end=now, scan_id=None,
+                  is_admin=security.is_admin, tool_version=__version__, changes=[], warnings=[],
+                  security=security, mode="security")
+
+
+def security_and_report(cfg: Config, days: int | None = None, progress: Progress = lambda _m: None,
+                        formats: list[str] | None = None, out_dir=None,
+                        use_ai: bool | None = None) -> tuple[Report, dict]:
+    from pathlib import Path
+
+    from sysscan.report.render import write_reports
+
+    store = Store(cfg.db_path)
+    try:
+        report = security_only(cfg, store, days, progress, use_ai)
+        written = write_reports(report, Path(out_dir) if out_dir else cfg.reports_path, formats or cfg.formats,
+                                prefix="security")
+    finally:
+        store.close()
+    return report, written
 
 
 def scan_and_report(cfg: Config, opts: ScanOptions, progress: Progress = lambda _m: None,

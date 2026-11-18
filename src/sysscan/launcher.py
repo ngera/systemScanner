@@ -37,7 +37,7 @@ from sysscan.winutil import IS_WINDOWS, is_admin
 
 APP_TITLE = "sysscan"
 CLI_COMMANDS = {"scan", "demo", "history", "open", "collectors", "set-key", "schedule", "tag", "untag", "tags",
-                "unknowns", "retag"}
+                "unknowns", "retag", "folders", "security", "trust", "untrust", "trusted"}
 
 log = logging.getLogger("sysscan.launcher")
 
@@ -92,6 +92,8 @@ SCAN OPTIONS (work with all of the above)
                           Run only / skip these sources: registry, appx, drivers, reliability,
                           eventlog, windows-update, pip, npm, editor-extensions, scoop-choco
   --no-open               Don't open the report afterwards
+  --no-security           Skip the remote access & monitoring check
+  --security-ai           Also let the AI look up files the security check flags
 
 COMMANDS  (add --help after any command for its options, e.g. runScan.exe tag --help)
   scan                    Same as running without a command
@@ -104,12 +106,17 @@ COMMANDS  (add --help after any command for its options, e.g. runScan.exe tag --
   untag NAME              Remove one of your tags
   tags                    List your tags
   retag                   Apply your tags to the latest report without rescanning
+  security [--days N]     Only the remote access & monitoring check (remote tools, sessions, keylogging signs)
+                          add --ai to have the AI look up what each flagged file is
+  trust KEY [--note ...]  Mark a security finding as checked (e.g. your own AnyDesk); untrust KEY; trusted
   schedule install|remove|status
   folders [PATH]          Size of each level-1 subfolder + HTML report
                           (default C:\\, or SYSSCAN_FOLDER_ROOT; --format / --out / --no-open)
 
 EXAMPLES
   runScan.exe --since 7d
+  runScan.exe security --days 60
+  runScan.exe security --ai
   runScan.exe --install-startup --time 20:00 --format html,json --out "D:\\Reports"
   runScan.exe tag "PowerENGAGE" --publisher "Example Corp" --description "What it is"
   runScan.exe folders

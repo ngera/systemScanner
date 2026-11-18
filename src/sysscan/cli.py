@@ -371,6 +371,83 @@ def cmd_schedule(args: argparse.Namespace, cfg: Config) -> int:
     return 0 if ok else 1
 
 
+def cmd_security(args: argparse.Namespace, cfg: Config) -> int:
+    from sysscan.scan import security_and_report
+
+    if not IS_WINDOWS:
+        print("The remote access & monitoring check needs Windows.", file=sys.stderr)
+        return 1
+    progress = (lambda m: None) if args.quiet else (lambda m: print(f"  · {m}", file=sys.stderr))
+    report, written = security_and_report(cfg, args.days, progress,
+                                          formats=args.format.split(",") if args.format else None, out_dir=args.out,
+                                          use_ai=args.ai)
+    sec = report.security
+    if not args.quiet and sec is not None:
+        print(f"\n{report.host}: remote access & monitoring")
+        print(f"  to investigate {sec.count('alert'):>3}   worth a look {sec.count('warn'):>3}   fine {sec.count('ok'):>3}")
+        icons = {"alert": "!!", "warn": " !"}
+        for f in sec.findings:
+            if f.status in icons and not f.trusted:
+                print(f"  {icons[f.status]} {f.title}{'  [NEW]' if f.new else ''}")
+                for p in f.paths[:5]:
+                    print(f"     path: {p}")
+                for loc in f.locations[:3]:
+                    print(f"     where: {loc}")
+                for ai in f.ai_results:
+                    print(f"     AI: {ai.get('file')}: {ai.get('verdict', '?').replace('_', ' ')} "
+                          f"({ai.get('confidence', '?')}) - {ai.get('what', '')[:110]}")
+                print(f"     key: {f.key}   (fix steps in the report)")
+        for e in sec.errors + sec.ai_notes:
+            print(f"  note: {e}")
+        for fmt, path in written.items():
+            print(f"  {fmt:>4}: {path}")
+    if "html" in written and cfg.open_report and not args.no_open:
+        _open(written["html"])
+    return 2 if sec is not None and sec.count("alert") else 0
+
+
+def cmd_trust(args: argparse.Namespace, cfg: Config) -> int:
+    from sysscan.security import TrustList
+
+    trust = TrustList(cfg.trusted_path)
+    replaced = args.key in trust.entries
+    trust.entries[args.key] = args.note or ""
+    trust.save()
+    print(f"{'Updated' if replaced else 'Trusted'}: {args.key}  ({cfg.trusted_path})")
+    print("It will show as trusted from the next check: sysscan security")
+    return 0
+
+
+def cmd_untrust(args: argparse.Namespace, cfg: Config) -> int:
+    from sysscan.security import TrustList
+
+    trust = TrustList(cfg.trusted_path)
+    if args.key not in trust.entries:
+        print(f"{args.key!r} isn't in your trusted list. See it with: sysscan trusted")
+        return 1
+    del trust.entries[args.key]
+    trust.save()
+    print(f"No longer trusted: {args.key}")
+    return 0
+
+
+def cmd_trusted(args: argparse.Namespace, cfg: Config) -> int:
+    from sysscan.security import TrustList
+
+    trust = TrustList(cfg.trusted_path)
+    for e in trust.errors:
+        print(f"warning: {e}")
+    if not trust.entries:
+        print(f"Nothing trusted yet ({cfg.trusted_path}).")
+        print("Use the 'Trust this' button in a security report, or: sysscan trust KEY --note \"why\"")
+        return 0
+    width = max(len(k) for k in trust.entries)
+    for k, note in trust.entries.items():
+        print(f"  {k:<{width}}  {note}")
+    print(f"\n{len(trust.entries)} trusted · {cfg.trusted_path}")
+    return 0
+
+
 # ----------------------------------------------------------------------------- parser
 
 def add_scan_options(s: argparse.ArgumentParser) -> None:
@@ -386,6 +463,10 @@ def add_scan_options(s: argparse.ArgumentParser) -> None:
     s.add_argument("--only", help="comma list of collectors to run")
     s.add_argument("--skip", help="comma list of collectors to skip")
     s.add_argument("--no-open", action="store_true", help="don't open the HTML report")
+    s.add_argument("--security-ai", dest="security_ai", action="store_true", default=None,
+                   help="AI lookup of files flagged by the security check (see `sysscan security --help`)")
+    s.add_argument("--no-security", dest="security", action="store_false", default=True,
+                   help="skip the remote access & monitoring check")
     s.add_argument("-q", "--quiet", action="store_true", help="no console output (for scheduled runs)")
 
 
@@ -397,6 +478,7 @@ def scan_options_from_args(args: argparse.Namespace, cfg: Config):
         use_ai=cfg.ai.enabled if args.ai is None else args.ai,
         only=args.only.split(",") if args.only else None,
         skip=args.skip.split(",") if args.skip else None,
+        security=getattr(args, "security", True), security_ai=getattr(args, "security_ai", None),
     )
 
 
@@ -479,6 +561,27 @@ def build_parser() -> argparse.ArgumentParser:
     f.add_argument("-q", "--quiet", action="store_true", help="no console summary / progress")
     f.set_defaults(func=cmd_folders)
 
+    se = sub.add_parser("security", help="check for remote access, remote sessions and monitoring/keylogging signs")
+    se.add_argument("--days", type=int, help="how far back to look for remote sessions (default 30)")
+    se.add_argument("--format", help="comma list of html,md,json (default from config)")
+    se.add_argument("--out", help="output directory for reports")
+    se.add_argument("--no-open", action="store_true", help="don't open the HTML report")
+    se.add_argument("-q", "--quiet", action="store_true", help="no console output")
+    se.add_argument("--ai", dest="ai", action="store_true", default=None,
+                    help="ask the AI (Claude with web search, or Ollama) what each flagged file is; sends only "
+                         "file facts (name, signer, version info, hash, folder without your user name)")
+    se.add_argument("--no-ai", dest="ai", action="store_false", help="don't use the AI lookup")
+    se.set_defaults(func=cmd_security)
+
+    tr = sub.add_parser("trust", help="mark a security finding as checked and trusted")
+    tr.add_argument("key", help="the finding's key from the report (a trailing * matches many)")
+    tr.add_argument("--note", default="", help="why you trust it, e.g. 'my own AnyDesk'")
+    tr.set_defaults(func=cmd_trust)
+    utr = sub.add_parser("untrust", help="remove a finding from your trusted list")
+    utr.add_argument("key")
+    utr.set_defaults(func=cmd_untrust)
+    sub.add_parser("trusted", help="list trusted security findings (trusted.toml)").set_defaults(func=cmd_trusted)
+
     sc = sub.add_parser("schedule", help="manage the daily snapshot task (Windows Task Scheduler)")
     sc.add_argument("action", choices=["install", "remove", "status"])
     sc.add_argument("--time", default="09:00", help="daily run time, HH:MM (default 09:00)")
@@ -494,7 +597,7 @@ def main(argv: list[str] | None = None) -> int:
     # `sysscan` and `sysscan --since 7d` mean `sysscan scan …`: insert the default sub-command
     # after any global options.
     commands = {"scan", "demo", "history", "open", "collectors", "set-key", "schedule", "tag", "untag", "tags",
-                "unknowns", "retag", "folders"}
+                "unknowns", "retag", "folders", "security", "trust", "untrust", "trusted"}
     i = 0
     while i < len(argv) and argv[i] in ("--config", "-v", "--verbose"):
         i += 2 if argv[i] == "--config" else 1

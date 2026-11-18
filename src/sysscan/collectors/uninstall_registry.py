@@ -67,6 +67,7 @@ def parse_entry(values: dict[str, object], key_name: str, key_prefix: str, scope
             "install_date": install_date,
             "last_write": last_write.isoformat() if last_write else None,
             "install_location": values.get("InstallLocation") or None,
+            "uninstall": values.get("QuietUninstallString") or values.get("UninstallString") or None,
             "url": values.get("URLInfoAbout") or values.get("HelpLink") or values.get("URLUpdateInfo") or None,
             "msi": str(values.get("WindowsInstaller", "0")) == "1",
             "registry_key": key_name,

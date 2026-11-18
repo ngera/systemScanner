@@ -46,6 +46,19 @@ CREATE TABLE IF NOT EXISTS descriptions (
     publisher   TEXT,            -- NULL = never asked; '' = asked, unknown
     source_url  TEXT             -- page that confirmed a web-assisted answer
 );
+CREATE TABLE IF NOT EXISTS security_runs (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    checked_at TEXT NOT NULL,
+    scan_id    INTEGER          -- the software scan it ran with, if any
+);
+CREATE TABLE IF NOT EXISTS security_findings (
+    run_id  INTEGER NOT NULL REFERENCES security_runs(id) ON DELETE CASCADE,
+    key     TEXT NOT NULL,
+    area    TEXT NOT NULL,
+    status  TEXT NOT NULL,
+    title   TEXT NOT NULL,
+    trusted INTEGER NOT NULL DEFAULT 0
+);
 """
 
 
@@ -194,3 +207,25 @@ class Store:
             (norm_key, text or "", source, model, now.isoformat(), publisher, source_url),
         )
         self.conn.commit()
+
+    # ------------------------------------------------------------------ security check history
+
+    def save_security_findings(self, checked_at: datetime, scan_id: int | None, findings: list[dict]) -> int:
+        cur = self.conn.execute("INSERT INTO security_runs (checked_at, scan_id) VALUES (?, ?)",
+                                (checked_at.isoformat(), scan_id))
+        run_id = int(cur.lastrowid or 0)
+        self.conn.executemany(
+            "INSERT INTO security_findings VALUES (?, ?, ?, ?, ?, ?)",
+            [(run_id, f["key"], f["area"], f["status"], f["title"], int(bool(f.get("trusted")))) for f in findings],
+        )
+        self.conn.commit()
+        return run_id
+
+    def last_security_findings(self) -> tuple[datetime | None, list[dict[str, str]]]:
+        """Findings of the most recent security check (before the one being saved now)."""
+        row = self.conn.execute("SELECT id, checked_at FROM security_runs ORDER BY id DESC LIMIT 1").fetchone()
+        if not row:
+            return None, []
+        rows = self.conn.execute(
+            "SELECT key, area, status, title FROM security_findings WHERE run_id = ?", (row["id"],)).fetchall()
+        return parse_iso(row["checked_at"]), [dict(r) for r in rows]

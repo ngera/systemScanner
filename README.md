@@ -46,6 +46,11 @@ the result into one easy-to-read report:
 - 💾 **Folder sizes.** `sysscan folders` measures each top-level folder under a path (default `C:\`),
   writes an HTML report with cleanup advice (safe / review / do not delete), and can use AI to classify
   unfamiliar folders.
+- 🛡️ **Remote access & monitoring check.** Is Remote Desktop on? Is a remote-control app like AnyDesk or
+  TeamViewer installed or connected right now? Did anyone sign in remotely? Any signs of a keylogger?
+  New problems since the last check are highlighted, and things you use on purpose can be marked as trusted.
+  Each finding shows the exact file paths (with signer, hash and a VirusTotal link) and copy-ready fix steps,
+  and `--ai` has Claude (with web search) or Ollama look up what each flagged file is.
 - 🖱️ **`runScan`.** No Python needed: double-click it, type it in a terminal, or let it run silently at startup.
 
 ## Quick start
@@ -98,13 +103,14 @@ sysscan scan --ai
 Details, web search (Claude only), costs and privacy: [docs/USER_GUIDE.md §7](docs/USER_GUIDE.md#7-ai-explanations-optional).
 Folder sizes: [docs/USER_GUIDE.md §5](docs/USER_GUIDE.md#5-folder-sizes-disk-space).
 
-## The five commands you'll use most
+## The commands you'll use most
 
 | Command | What it does |
 |---|---|
 | `sysscan` | Scans now and shows what changed since the last scan |
 | `sysscan scan --since 7d` | Shows what changed in the last 7 days |
 | `sysscan folders` | Folder sizes under `C:\` (or another path) + HTML cleanup report |
+| `sysscan security` | Checks who could reach or watch this PC, and who connected remotely recently |
 | `sysscan schedule install` | Takes a snapshot automatically every day (run once, as administrator) |
 | `sysscan unknowns` | Lists anything the report couldn't identify |
 | `sysscan tag "Name" --publisher "…" --description "…"` | Records what something is, so every future report knows it |
@@ -124,6 +130,10 @@ sysscan tries to be honest about what Windows actually records.
 
 **The more often it runs, the better the reports get.** That's what the daily snapshot is for.
 
+The security check is also honest about its limits: it finds the usual signs of remote access and
+monitoring, but **no tool can prove a PC is clean**. Well-made spyware is designed to hide from checks like
+these. See the [user guide](docs/USER_GUIDE.md#9-remote-access--monitoring-check) for details.
+
 ## Privacy
 
 - **Everything stays on your PC.** Snapshots and reports are saved in `%LOCALAPPDATA%\sysscan`.
@@ -131,6 +141,9 @@ sysscan tries to be honest about what Windows actually records.
   software: its name, maker, version and type, plus clues such as the vendor's website or its folder
   under Program Files — and only for items it couldn't identify itself. With **Ollama**, the same facts
   stay on your machine. Answers are cached, so the same item isn't asked about again.
+- **Security findings are not sent anywhere.** Only if you turn on the security AI lookup
+  (`sysscan security --ai`) are facts about the flagged *files* sent: name, folder without your user name,
+  signer, version info and hash. Never your user name, IP addresses or session details.
 - **No personal details are sent.** Your user name, anything inside your user folder, and your computer's
   name and details are never included.
 
@@ -160,6 +173,9 @@ Curious about the details and trade-offs? See [docs/DESIGN.md](docs/DESIGN.md).
 | Event logs | Exact install/removal times, new background services |
 | Windows Update history | Windows updates, driver updates, Defender updates |
 | pip, npm, VS Code/Cursor, Scoop, Chocolatey | Developer tools that don't appear in "Installed apps" |
+| Remote Desktop settings, services, open ports, network adapters | Ways someone could connect to this PC |
+| Security and Terminal Services logs, TeamViewer/AnyDesk logs | Who connected remotely, from where and when |
+| Keyboard drivers, auto-start programs, Defender, firewall | Signs of monitoring software, and whether protection is on |
 
 ## Contributing
 

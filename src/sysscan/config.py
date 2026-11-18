@@ -47,6 +47,13 @@ class Config:
     known_software_file: Path | None = None
     #: Root whose level-1 subfolders are sized by ``sysscan folders`` (override with CLI path).
     folder_root: Path = field(default_factory=lambda: Path(r"C:\\"))
+    security_enabled: bool = True
+    security_history_days: int = 30
+    #: Ask the AI provider what flagged files are (opt-in; see sysscan.security.ai_lookup for what is sent).
+    security_ai: bool = False
+    #: With Claude, research each file with web search (needs security_ai).
+    security_ai_web: bool = True
+    security_ai_max_items: int = 15
 
     @property
     def db_path(self) -> Path:
@@ -55,6 +62,10 @@ class Config:
     @property
     def reports_path(self) -> Path:
         return self.report_dir or (self.home / "reports")
+
+    @property
+    def trusted_path(self) -> Path:
+        return self.home / "trusted.toml"
 
     @property
     def known_software_path(self) -> Path:
@@ -88,6 +99,14 @@ def apply_env_overrides(cfg: Config) -> Config:
         cfg.ai.base_url = base_url
     if (n := os.environ.get("SYSSCAN_AI_MAX_ITEMS", "").strip()).isdigit():
         cfg.ai.max_items_per_run = int(n)
+    if (flag := env_flag("SYSSCAN_SECURITY")) is not None:
+        cfg.security_enabled = flag
+    if (flag := env_flag("SYSSCAN_SECURITY_AI")) is not None:
+        cfg.security_ai = flag
+    if (flag := env_flag("SYSSCAN_SECURITY_AI_WEB")) is not None:
+        cfg.security_ai_web = flag
+    if (n := os.environ.get("SYSSCAN_SECURITY_AI_MAX_ITEMS", "").strip()).isdigit():
+        cfg.security_ai_max_items = int(n)
     if (flag := env_flag("SYSSCAN_AI_WEB")) is not None:
         cfg.ai.web = flag
     if (n := os.environ.get("SYSSCAN_AI_WEB_MAX_ITEMS", "").strip()).isdigit():
@@ -125,6 +144,12 @@ def load_config(path: Path | None = None) -> Config:
     folders = data.get("folders", {})
     if "root" in folders:
         cfg.folder_root = Path(str(folders["root"])).expanduser()
+    sec = data.get("security", {})
+    cfg.security_enabled = bool(sec.get("enabled", cfg.security_enabled))
+    cfg.security_history_days = int(sec.get("history_days", cfg.security_history_days))
+    cfg.security_ai = bool(sec.get("ai", cfg.security_ai))
+    cfg.security_ai_web = bool(sec.get("ai_web", cfg.security_ai_web))
+    cfg.security_ai_max_items = int(sec.get("ai_max_items", cfg.security_ai_max_items))
 
     ai = data.get("ai", {})
     cfg.ai = AIConfig(

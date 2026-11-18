@@ -124,6 +124,26 @@ class KnownSoftware:
         self.entries.append(entry)
         return False
 
+    def remove(self, key: str, regex: bool = False) -> list[KnownEntry]:
+        """Remove entries whose name (normalised) or match pattern equals ``key``. Returns what was removed.
+
+        A plain key also removes a pattern entry with exactly that text, so a tag can be removed by
+        pasting back whatever `sysscan tags` printed.
+        """
+        norm = normalize_name(key)
+        removed = [e for e in self.entries
+                   if (e.match is not None and e.match == key)
+                   or (not regex and e.name is not None and e._norm == norm)]
+        self.entries = [e for e in self.entries if e not in removed]
+        return removed
+
+    def describe(self, e: KnownEntry) -> str:
+        what = f"/{e.match}/ (pattern)" if e.match else (e.name or "")
+        bits = [f"publisher: {e.publisher}" if e.publisher else "", f"routine: {str(e.routine).lower()}"
+                if e.routine is not None else "", f"only {e.category}" if e.category else ""]
+        extra = "; ".join(b for b in bits if b)
+        return what + (f"  [{extra}]" if extra else "") + (f"\n      {e.description}" if e.description else "")
+
     # ------------------------------------------------------------------ apply
 
     def find(self, change: Change) -> KnownEntry | None:

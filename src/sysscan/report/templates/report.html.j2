@@ -50,6 +50,106 @@
   <div>What it is</div>
 </div>
 {%- endmacro -%}
+{%- macro secrow(f) -%}
+<div class="secrow s-{{ f.status }}{% if f.trusted %} trusted{% endif %}" data-key="{{ f.key }}">
+  <div class="sicon" aria-hidden="true">{{ {"alert": "🔴", "warn": "⚠️", "ok": "✅", "info": "ℹ️"}[f.status] if not f.trusted else "☑️" }}</div>
+  <div>
+    <div class="stitle">{{ f.title }}
+      {%- if f.new %} <span class="newbadge">NEW</span>{% endif -%}
+      {%- if f.trusted %} <span class="src yours" title="From your trusted.toml">trusted{% if f.trust_note and f.trust_note != "trusted" %}: {{ f.trust_note }}{% endif %}</span>{% endif -%}
+    </div>
+    <div class="sexpl">{{ f.explanation }}</div>
+    {%- for ai in f.ai_results %}
+    <div class="ailine"><span class="verdict v-{{ ai.verdict }}">AI: {{ verdict_label(ai.verdict) }}</span>
+      <span class="muted">{{ ai.file }} · {{ ai.confidence }} confidence</span></div>
+    {%- endfor %}
+    {%- if (f.paths or f.locations) and f.status in ("alert", "warn") %}
+    <div class="where"><div class="sub">Where</div>
+      {%- for p in f.paths %}{% set fi = facts_for(f, p) %}
+      <div class="wpath"><code>{{ p }}</code>
+        <button type="button" class="cmdbtn small" data-cmd="{{ p }}" title="Copy the path">Copy path</button>
+        {%- if fi and fi.exists and not fi.folder %}
+        <div class="facts">
+          {%- if fi.sig_status %}<span class="{{ 'ok' if fi.sig_status == 'Valid' else 'bad' }}">{{ 'Signed by ' ~ signer_name(fi.signer) if fi.sig_status == 'Valid' else 'Not validly signed (' ~ fi.sig_status ~ ')' }}</span>{% endif %}
+          {%- if fi.company or fi.product or fi.description %} · {{ [fi.company, fi.product, fi.description]|select|unique|join(" · ") }}{% endif %}
+          {%- if fi.version %} · version {{ fi.version }}{% endif %}
+          {%- if fi.modified %} · modified {{ fi.modified[:10] }}{% endif %}
+          {%- if fi.sha256 %}<br>SHA-256 <code class="hash">{{ fi.sha256 }}</code>
+          <a href="https://www.virustotal.com/gui/file/{{ fi.sha256|lower }}" target="_blank" rel="noopener noreferrer">Check on VirusTotal</a>{% endif %}
+        </div>
+        {%- elif fi and not fi.exists %}<div class="facts muted">File not found (it may have been removed already).</div>{% endif %}
+      </div>
+      {%- endfor %}
+      {%- for loc in f.locations %}<div class="wloc">{{ loc }}</div>{% endfor %}
+    </div>
+    {%- endif %}
+    {%- if f.fix and not f.trusted %}
+    <details class="fix"{% if f.status == "alert" %} open{% endif %}><summary>How to fix ({{ f.fix|length }} step{{ "s" if f.fix|length != 1 }})</summary>
+      <p class="muted small">Commands are for PowerShell run as administrator. sysscan never runs them: read each one first.</p>
+      <ol>{% for st in f.fix %}<li>{{ st.text }}
+        {%- if st.cmd %}<div class="cmd"><code>{{ st.cmd }}</code><button type="button" class="cmdbtn" data-cmd="{{ st.cmd }}">Copy</button></div>{% endif %}</li>{% endfor %}</ol>
+    </details>
+    {%- endif %}
+    {%- for ai in f.ai_results %}
+    <details class="aibox"{% if ai.verdict in ("malicious", "suspicious") %} open{% endif %}><summary>AI lookup: {{ ai.file }} · <span class="verdict v-{{ ai.verdict }}">{{ verdict_label(ai.verdict) }}</span></summary>
+      {%- if ai.what %}<p>{{ ai.what }}{% if ai.maker %} <span class="muted">Maker: {{ ai.maker }}.</span>{% endif %}</p>{% endif %}
+      {%- if ai.why %}<p><b>Why:</b> {{ ai.why }}</p>{% endif %}
+      {%- if ai.advice %}<p><b>Suggested:</b></p><ul>{% for a in ai.advice %}<li>{{ a }}</li>{% endfor %}</ul>{% endif %}
+      {%- if ai.sources %}<p class="small"><b>Sources:</b> {% for u in ai.sources %}<a href="{{ u }}" target="_blank" rel="noopener noreferrer">{{ u|truncate(70, True, "…") }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</p>{% endif %}
+      <p class="muted small">{{ ai.provider or "AI" }}, {{ ai.confidence }} confidence{% if ai.cached %}, saved answer from {{ (ai.checked_at or "")[:10] }}{% endif %}. AI can be wrong: use it as a lead, not proof.</p>
+    </details>
+    {%- endfor %}
+    {%- if f.evidence %}
+    <details class="ev"><summary>Details ({{ f.evidence|length }})</summary><ul>
+      {%- for e in f.evidence %}<li>{{ e }}</li>{% endfor -%}
+    </ul></details>
+    {%- endif %}
+    {%- if f.status in ("alert", "warn") and not f.trusted %}
+    <button type="button" class="trustbtn" data-cmd="sysscan trust {{ ps_quote(f.key) }} --note {{ ps_quote('') }}"
+      title="Copy a command that marks this as checked and trusted">Trust this</button>
+    {%- endif %}
+  </div>
+</div>
+{%- endmacro -%}
+
+{%- macro security_section(sec) -%}
+<section class="secsec" id="security">
+  <h2>Remote access &amp; monitoring</h2>
+  <p class="blurb">What's set up that could let someone reach or watch this PC, and who has connected
+    {%- if sec.since %} since {{ sec.since|d }}{% endif %}. Checked {{ sec.checked_at|dt }}
+    {%- if sec.previous_at %}; compared with the check on {{ sec.previous_at|dt }}{% endif %}.</p>
+  <div class="seccards">
+    <a class="seccard s-alert{% if not sec.count('alert') %} zero{% endif %}" href="#security"><b>{{ sec.count('alert') }}</b> to investigate</a>
+    <a class="seccard s-warn{% if not sec.count('warn') %} zero{% endif %}" href="#security"><b>{{ sec.count('warn') }}</b> worth a look</a>
+    <a class="seccard s-ok" href="#security"><b>{{ sec.count('ok') }}</b> fine</a>
+  </div>
+  {% if sec.new %}
+  <div class="secnew"><b>New since the last check</b>
+    <ul>{% for f in sec.new %}<li>{{ {"alert": "🔴", "warn": "⚠️"}.get(f.status, "") }} {{ f.title }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+  {% if sec.resolved %}
+  <details class="routine"><summary>{{ sec.resolved|length }} item{{ "s" if sec.resolved|length != 1 }} from last time {{ "are" if sec.resolved|length != 1 else "is" }} gone</summary>
+    <ul>{% for f in sec.resolved %}<li>✅ {{ f.title }}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+  {% for area, label, items in sec.by_area() %}
+  <h3 class="cat">{{ label }}</h3>
+  <div class="secrows">{% for f in items %}{{ secrow(f) }}{% endfor %}</div>
+  {% endfor %}
+  {% if sec.errors %}
+  <details class="ev"><summary>Some checks couldn't run fully ({{ sec.errors|length }})</summary>
+    <ul>{% for e in sec.errors %}<li>{{ e }}</li>{% endfor %}</ul></details>
+  {% endif %}
+  {% if sec.ai or sec.ai_notes %}
+  <p class="secnote">{% if sec.ai %}AI lookup: {{ sec.ai }}. Only facts about flagged files were sent (name, folder without
+    your user name, signer, version info, SHA-256).{% endif %}{% for n in sec.ai_notes %} {{ n }}{% endfor %}</p>
+  {% endif %}
+  <p class="secnote">No tool can prove a PC is clean: well-made spyware hides from checks like these. If you suspect a
+    problem, also run a <b>Microsoft Defender Offline scan</b> (Windows Security → Virus &amp; threat protection →
+    Scan options) and change your important passwords from a different device.</p>
+</section>
+{%- endmacro -%}
 <!doctype html>
 <html lang="en">
 <head>
@@ -172,6 +272,58 @@ section.action > p.blurb { color: var(--muted); margin: 4px 0 12px; font-size: 1
 .times { font-size: 12px; font-weight: 600; color: var(--muted); background: var(--chip); border-radius: 99px;
   padding: 0 6px; margin-left: 4px; }
 .srclink { font-size: 12px; color: var(--focus); margin-left: 4px; }
+.secsec { margin: 28px 0 0; }
+.secsec > h2 { font-size: 20px; margin: 0; }
+.secsec .blurb { color: var(--muted); margin: 4px 0 12px; font-size: 14px; }
+.seccards { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; }
+.seccard { text-decoration: none; color: var(--text); background: var(--panel); border: 1px solid var(--line);
+  border-left: 4px solid var(--sc); border-radius: 10px; padding: 8px 14px; font-size: 14px; }
+.seccard b { font-size: 20px; color: var(--sc); margin-right: 4px; font-variant-numeric: tabular-nums; }
+.seccard.zero { opacity: .55; }
+.s-alert { --sc: var(--uninstalled); } .s-warn { --sc: var(--changed); } .s-ok { --sc: var(--installed); }
+.s-info { --sc: var(--updated); }
+.secnew { background: var(--uninstalled-bg); border: 1px solid var(--uninstalled); border-radius: 10px;
+  padding: 10px 14px; margin: 0 0 14px; font-size: 14px; }
+.secnew ul { margin: 4px 0 0; padding-left: 20px; }
+.secrows { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.secrow { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 11px 16px;
+  border-top: 1px solid var(--line); border-left: 3px solid var(--sc); }
+.secrow:first-child { border-top: 0; }
+.secrow.trusted { opacity: .7; border-left-color: var(--line); }
+.sicon { font-size: 16px; line-height: 1.4; }
+.stitle { font-weight: 600; }
+.sexpl { font-size: 14px; margin-top: 2px; }
+.newbadge { font-size: 11px; font-weight: 700; color: #fff; background: var(--uninstalled); border-radius: 99px;
+  padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
+.trustbtn { margin-top: 6px; font-size: 11px; padding: 1px 8px; border-radius: 99px; cursor: pointer;
+  border: 1px dashed var(--muted); background: transparent; color: var(--muted); }
+.trustbtn:hover { border-style: solid; color: var(--text); }
+.trustbtn.done { border-style: solid; color: var(--installed); border-color: var(--installed); }
+.secnote { font-size: 13px; color: var(--muted); margin-top: 12px; }
+.secrow .sub { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-top: 8px; }
+.where { margin-top: 4px; font-size: 13px; }
+.wpath { margin: 4px 0; overflow-wrap: anywhere; }
+.wpath > code, .cmd code, .hash { font-family: var(--mono); font-size: 12.5px; background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 1px 6px; overflow-wrap: anywhere; }
+.facts { font-size: 12.5px; color: var(--muted); margin: 3px 0 0 2px; }
+.facts .ok { color: var(--installed); } .facts .bad { color: var(--uninstalled); font-weight: 600; }
+.wloc { font-family: var(--mono); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; margin: 2px 0; }
+details.fix, details.aibox { margin-top: 8px; font-size: 13.5px; }
+details.fix > summary, details.aibox > summary { cursor: pointer; font-weight: 600; }
+details.fix ol { margin: 6px 0 0; padding-left: 22px; } details.fix li { margin: 6px 0; }
+.cmd { display: flex; gap: 6px; align-items: flex-start; margin-top: 3px; }
+.cmd code { flex: 1; display: block; white-space: pre-wrap; }
+.cmdbtn { font-size: 11px; padding: 1px 8px; border-radius: 99px; cursor: pointer; border: 1px solid var(--line);
+  background: var(--panel); color: var(--muted); white-space: nowrap; }
+.cmdbtn:hover { color: var(--text); border-color: var(--muted); } .cmdbtn.small { margin-left: 4px; }
+.cmdbtn.done { color: var(--installed); border-color: var(--installed); }
+.small { font-size: 12px; }
+.ailine { margin-top: 4px; font-size: 12.5px; }
+.verdict { font-size: 11.5px; font-weight: 700; border-radius: 99px; padding: 1px 8px; background: var(--chip); }
+.v-legitimate { color: var(--installed); background: var(--installed-bg); }
+.v-malicious, .v-suspicious { color: #fff; background: var(--uninstalled); }
+.v-potentially_unwanted { color: var(--text); background: var(--warn-bg); border: 1px solid var(--warn-line); }
+details.aibox p { margin: 6px 0; } details.aibox ul { margin: 4px 0; padding-left: 20px; }
 .tagbtn { margin-left: 6px; font-size: 11px; padding: 1px 8px; border-radius: 99px; cursor: pointer;
   border: 1px dashed var(--muted); background: transparent; color: var(--muted); }
 .tagbtn:hover { border-style: solid; color: var(--text); }
@@ -208,14 +360,22 @@ footer th { font-weight: 600; color: var(--text); border-top: 0; }
 <body>
 <div class="wrap">
 <header>
+  {% if r.mode == "security" %}
+  <h1>Remote access &amp; monitoring check on {{ r.host }}{% if r.demo %}<span class="demo">sample data</span>{% endif %}</h1>
+  <div class="meta">Session history from <b>{{ r.period_start|dt }}</b> → <b>{{ r.period_end|dt }}</b>
+    · {{ "administrator" if r.is_admin else "standard user" }}</div>
+  {% else %}
   <h1>What changed on {{ r.host }}{% if r.demo %}<span class="demo">sample data</span>{% endif %}</h1>
   <div class="meta">
     <b>{{ r.period_start|dt }}</b> → <b>{{ r.period_end|dt }}</b>
     · generated {{ r.generated_at|dt }}
     {% if r.baseline_at %} · compared with snapshot from {{ r.baseline_at|dt }}{% endif %}
     · {{ "administrator" if r.is_admin else "standard user" }}
+    {% if r.security %} · <a href="#security">remote access &amp; monitoring</a>{% endif %}
   </div>
+  {% endif %}
 </header>
+{% if r.mode != "security" %}
 
 <div class="cards">
 {% for a in actions %}
@@ -228,11 +388,14 @@ footer th { font-weight: 600; color: var(--text); border-top: 0; }
 {% endfor %}
 </div>
 
+{% endif %}
 {% if r.warnings %}
 <div class="warn"><b>Good to know</b>
   <ul>{% for w in r.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
 </div>
 {% endif %}
+{% if r.security and (r.mode == "security" or r.security.count("alert")) %}{{ security_section(r.security) }}{% endif %}
+{% if r.mode != "security" %}
 
 {% if r.changes %}
 <div class="filters" role="search" aria-label="Filter changes">
@@ -289,8 +452,11 @@ footer th { font-weight: 600; color: var(--text); border-top: 0; }
 <div class="empty">Nothing was installed, updated or removed in this period.</div>
 {% endfor %}
 <div class="empty hidden" id="noresults">No changes match these filters. <button type="button" class="preset" id="reset2">Reset filters</button></div>
+{% if r.security and not r.security.count("alert") %}{{ security_section(r.security) }}{% endif %}
+{% endif %}
 
 <footer>
+  {% if r.mode != "security" %}
   <b>Sources checked</b>
   <table>
     <tr><th>Source</th><th>Status</th><th>Items</th><th>Events</th><th>Time</th></tr>
@@ -306,6 +472,10 @@ footer th { font-weight: 600; color: var(--text); border-top: 0; }
   filled in by AI; they may be imprecise for obscure software. <span class="src yours">yours</span> marks
   your own tags. Use <b>Tag it</b> on a row (or <code>sysscan unknowns --edit</code>) to identify something
   yourself, then <code>sysscan retag</code>.{% if r.ai_used %} AI was enabled for this scan.{% endif %}</p>
+  {% endif %}
+  {% if r.security %}<p><b>Trust this</b> copies a command that marks a finding as checked (for example your own
+  AnyDesk or Tailscale). Trusted findings stay visible but no longer count as problems. Manage them with
+  <code>sysscan trusted</code> and <code>sysscan untrust</code>.</p>{% endif %}
   <p>sysscan {{ r.tool_version }}</p>
 </footer>
 </div>
@@ -473,6 +643,36 @@ footer th { font-weight: 600; color: var(--text); border-top: 0; }
   });
 
   apply();
+})();
+</script>
+<script>
+(function () {
+  function fallback(text) {
+    var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok ? Promise.resolve() : Promise.reject(new Error('blocked'));
+  }
+  function copy(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text).catch(function () { return fallback(text); });
+    return fallback(text);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.trustbtn, .cmdbtn'), function (b) {
+    var label = b.textContent;
+    b.addEventListener('click', function () {
+      copy(b.dataset.cmd).then(function () {
+        b.textContent = b.classList.contains('trustbtn') ? 'Copied: paste in PowerShell' : 'Copied';
+        b.classList.add('done');
+        setTimeout(function () { b.textContent = label; b.classList.remove('done'); }, 2500);
+      }, function () {
+        if (!b.nextElementSibling || !b.nextElementSibling.classList.contains('tagcmd')) {
+          var code = document.createElement('code'); code.className = 'tagcmd'; code.textContent = b.dataset.cmd;
+          b.insertAdjacentElement('afterend', code);
+        }
+      });
+    });
+  });
 })();
 </script>
 </body>

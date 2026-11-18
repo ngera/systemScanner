@@ -132,6 +132,45 @@ cleanup heuristics (`folderadvice.py`), optionally asks the same Claude/Ollama s
 unknown/caution folders from path + child names only (`folder_ai.py`), and writes an HTML report.
 It does not feed the snapshot database's change diff.
 
+## Remote access & monitoring check
+
+`sysscan.security` is separate from the change pipeline: it describes the PC's *state* and recent remote
+*sessions*, not software changes.
+
+- **probe.py** runs one PowerShell script that gathers each area (RDP registry values, services, processes,
+  TCP/UDP listeners, established connections, adapters, `qwinsta`, keyboard class `UpperFilters`, IFEO
+  debuggers, accessibility binaries' Authenticode, Run keys, Startup folders, scheduled tasks, Defender,
+  SecurityCenter2, firewall). Each part has its own try/catch and reports `<part>_error`, so one failure
+  doesn't hide the rest. Session history uses `Get-WinEvent -FilterXPath` with a time filter (Security 4624 type
+  10; TerminalServices 1149/21/25; OpenSSH 4), plus TeamViewer's and AnyDesk's own logs. Signatures are only
+  checked for auto-start programs in user-writable folders, which keeps the check fast.
+- **catalog.py** lists known remote-control, monitoring, overlay-network and VPN-client tools by process, service,
+  installed-name and adapter patterns. Adding a tool is a one-entry change.
+- **analyze.py** is pure Python over the collected dict, so all grading rules are unit-tested with fixtures.
+  Each finding has a **stable key** (`tools:remote:anydesk`, `sessions:remote_desktop:pc\bob:203.0.113.5`)
+  used for the trust list and for comparing with the previous check.
+- The grading leans towards **few false alarms**: remote tools that are merely installed are information,
+  auto-start is "worth a look", and only active connections, live RDP sessions, internet-sourced sign-ins,
+  monitoring products, accessibility tampering, disabled real-time protection and unremoved threats are
+  "investigate". Windows' own IPsec service on UDP 500/4500 isn't treated as a VPN server.
+- Previous results are stored in `security_runs`/`security_findings`, not in `scans`, so running
+  `sysscan security` doesn't move the baseline that the next change report compares against.
+- **Paths and fixes.** Findings carry `paths` (files and folders), `locations` (registry values, services,
+  tasks, ports) and structured `meta`. A second read-only PowerShell pass (`probe.file_facts`) adds hash,
+  Authenticode status, signer and version info for the files behind alert/warn findings. `remedy.py` turns
+  `meta` into step-by-step fixes with PowerShell commands that target the exact item (service name, PID, Run
+  value, task path, IFEO key). Commands are only displayed, never executed, and checking steps come before
+  removal steps; registry edits start with a `reg export` backup.
+- **AI lookup** (`ai_lookup.py`, opt-in) sends one small JSON object per distinct file (grouped by hash): file
+  name, folder with the user-profile segment redacted, signature, signer, version-info strings, SHA-256 and the
+  finding title. With Claude it uses the `web_search` tool (max 3 searches per file, 15 per batch); with Ollama
+  there's no web access and the prompt asks for "unknown" rather than guesses. Microsoft-signed files, trusted
+  findings and session findings are never sent. Answers are cached in the descriptions table under
+  `secai:sha256:…` for 30 days (7 for unknown). A confident "malicious" escalates warn → alert; the AI never
+  lowers a status.
+- Limits: this is a check of common signs, not an anti-malware engine. Kernel-level or well-hidden spyware can
+  evade every one of these sources, and that's said plainly in the report.
+
 ## Known limitations and future work
 
 - Changelogs: not stored anywhere locally.

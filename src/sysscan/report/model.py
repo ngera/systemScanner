@@ -59,6 +59,8 @@ class Report:
     warnings: list[str] = field(default_factory=list)
     ai_used: bool = False
     demo: bool = False
+    security: Any = None  # sysscan.security.SecurityResult
+    mode: str = "changes"  # "changes" (normal scan) | "security" (`sysscan security`)
 
     def count(self, action: Action, include_routine: bool = True) -> int:
         return sum(1 for c in self.changes if c.action == action and (include_routine or not c.routine))
@@ -106,6 +108,8 @@ class Report:
             "warnings": self.warnings,
             "collectors": [vars(s) for s in self.collector_status],
             "changes": [c.to_dict() for c in self.changes],
+            "mode": self.mode,
+            "security": self.security.to_dict() if self.security is not None else None,
         }
 
 
@@ -121,7 +125,16 @@ def report_from_dict(d: dict[str, Any]) -> Report:
         baseline_at=parse_iso(d.get("baseline_at")), comparison_end=parse_iso(d.get("comparison_end")),
         collector_status=[CollectorStatus(**c) for c in d.get("collectors", [])],
         warnings=list(d.get("warnings", [])),
+        security=_security_from(d.get("security")), mode=d.get("mode", "changes"),
     )
+
+
+def _security_from(d: Any):
+    if not d:
+        return None
+    from sysscan.security import SecurityResult
+
+    return SecurityResult.from_dict(d)
 
 
 def _sort(changes: list[Change]) -> list[Change]:
